@@ -1,0 +1,10 @@
+Tema: Sustav za upravljanje dostavama i logistikom
+Autori: Tin Barbarić, Dino Drčec
+
+1. faza: Korisnik može kreirati pošiljku s detaljima o pošiljatelju, primatelju, proizvodima, težini i adresama, ažurirati status pošiljke te pretraživati pošiljke prema tracking broju. Sustav se sastoji od web poslužitelja, sustava za raspodjelu opterećenja i baze podataka za pohranu podataka o pošiljkama, dobavljačima i proizvodima.
+
+2. faza: Korisnik može prikazati mrežu distributivnih centara i izračunati optimalnu rutu između njih. Aktivne pošiljke i zadnje lokacije vozila pohranjuju se u predmemoriju radi bržeg pristupa. Dodani su graf baza podataka za modeliranje ruta, sustav za predmemoriju i web servis za rad u realnom vremenu.
+
+3. faza: Vozači šalju lokacijske događaje u realnom vremenu, koji omogućuju praćenje vozila na karti. Omogućeno je napredno pretraživanje pošiljki po svim poljima. Dodani su sustav za strujanje podataka, sustav za pretraživanje, sustav za prikupljanje logova, sustav za vizualizaciju.
+
+4. faza (APVO – neobavezno): Predviđanje vremena dostave na temelju povijesnih podataka o pošiljkama, prometa i vremenskih uvjeta. Automatska optimizacija ruta radi smanjenja trajanja i troškova. Dodani su alati za implementaciju modela i automatizaciju.
