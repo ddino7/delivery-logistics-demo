@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Track Shipment - Delivery System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>🔍 Track Your Shipment</h1>
+</div>
+
+<div class="tracking-search">
+    <form id="trackingForm">
+        <div class="search-box">
+            <input 
+                type="text" 
+                id="tracking_number" 
+                name="tracking_number" 
+                placeholder="Enter tracking number (e.g., DLV123456789)" 
+                required
+            >
+            <button type="submit" class="btn btn-primary">Track</button>
+        </div>
+    </form>
+</div>
+
+<div id="tracking-result" class="tracking-result" style="display: none;"></div>
+
+<div class="info-box">
+    <h3>How to track your shipment:</h3>
+    <ol>
+        <li>Enter your tracking number in the search box above</li>
+        <li>Click "Track" to see the current status</li>
+        <li>View the complete status history and shipment details</li>
+    </ol>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('trackingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const trackingNumber = document.getElementById('tracking_number').value.trim();
+    const resultDiv = document.getElementById('tracking-result');
+    
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<p>Searching for shipment...</p>';
+    
+    try {
+        const response = await fetch(`/api/tracking/${trackingNumber}`);
+        const data = await response.json();
+        
+        if (response.ok && data.found) {
+            const statusColors = {
+                'CREATED': '#3498db',
+                'IN_WAREHOUSE': '#f39c12',
+                'IN_TRANSIT': '#9b59b6',
+                'DELIVERED': '#27ae60'
+            };
+            
+            const statusIcons = {
+                'CREATED': '📝',
+                'IN_WAREHOUSE': '🏢',
+                'IN_TRANSIT': '🚚',
+                'DELIVERED': '✅'
+            };
+            
+            resultDiv.className = 'tracking-result found';
+            resultDiv.innerHTML = `
+                <div class="shipment-header">
+                    <h2>Shipment Found!</h2>
+                    <div class="tracking-number-display">${data.tracking_number}</div>
+                </div>
+                
+                <div class="current-status" style="background-color: ${statusColors[data.status]}">
+                    <span class="status-icon">${statusIcons[data.status]}</span>
+                    <span class="status-text">${data.status.replace('_', ' ')}</span>
+                </div>
+                
+                <div class="shipment-details">
+                    <div class="detail-section">
+                        <h3>Sender</h3>
+                        <p><strong>${data.sender.name}</strong></p>
+                        ${data.sender.phone ? `<p>📞 ${data.sender.phone}</p>` : ''}
+                        ${data.sender.email ? `<p>📧 ${data.sender.email}</p>` : ''}
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Receiver</h3>
+                        <p><strong>${data.receiver.name}</strong></p>
+                        ${data.receiver.phone ? `<p>📞 ${data.receiver.phone}</p>` : ''}
+                        ${data.receiver.email ? `<p>📧 ${data.receiver.email}</p>` : ''}
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Addresses</h3>
+                        <p><strong>From:</strong> ${data.pickup_address}</p>
+                        <p><strong>To:</strong> ${data.delivery_address}</p>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h3>Shipment Info</h3>
+                        <p><strong>Weight:</strong> ${data.weight} kg</p>
+                        <p><strong>Created:</strong> ${new Date(data.created_at).toLocaleString()}</p>
+                        <p><strong>Last Updated:</strong> ${new Date(data.updated_at).toLocaleString()}</p>
+                    </div>
+                </div>
+                
+                <div class="status-history">
+                    <h3>Status History</h3>
+                    <div class="timeline">
+                        ${data.status_history.map(entry => `
+                            <div class="timeline-item">
+                                <div class="timeline-marker"></div>
+                                <div class="timeline-content">
+                                    <strong>${entry.status.replace('_', ' ')}</strong>
+                                    <p>${entry.note}</p>
+                                    <span class="timeline-date">${new Date(entry.timestamp).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            resultDiv.className = 'tracking-result not-found';
+            resultDiv.innerHTML = `
+                <div class="error-message">
+                    <h2>❌ Shipment Not Found</h2>
+                    <p>No shipment found with tracking number: <strong>${trackingNumber}</strong></p>
+                    <p>Please check the tracking number and try again.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultDiv.className = 'tracking-result error';
+        resultDiv.innerHTML = `
+            <div class="error-message">
+                <h2>⚠️ Error</h2>
+                <p>An error occurred while tracking your shipment: ${error.message}</p>
+            </div>
+        `;
+    }
+});
+</script>
+{% endblock %}

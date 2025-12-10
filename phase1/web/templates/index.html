@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Delivery System{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Welcome to Delivery Management System</h1>
+    <p class="subtitle">Phase 1: Core Functionality with MongoDB Replication & Load Balancing</p>
+</div>
+
+<div class="features">
+    <div class="feature-card">
+        <h2>📦 Create Shipment</h2>
+        <p>Create new shipments with detailed sender, receiver, and product information.</p>
+        <a href="/create" class="btn btn-primary">Create Now</a>
+    </div>
+
+    <div class="feature-card">
+        <h2>🔍 Track Shipment</h2>
+        <p>Track your shipment using the tracking number and see real-time status updates.</p>
+        <a href="/track" class="btn btn-primary">Track Now</a>
+    </div>
+
+    <div class="feature-card">
+        <h2>📊 System Status</h2>
+        <p>Check the system health and database connection status.</p>
+        <button class="btn btn-secondary" onclick="checkHealth()">Check Status</button>
+    </div>
+</div>
+
+<div id="system-status" class="status-box" style="display: none;">
+    <h3>System Status</h3>
+    <div id="status-content"></div>
+</div>
+
+<div class="info-section">
+    <h2>System Architecture - Phase 1</h2>
+    <ul class="architecture-list">
+        <li>✅ <strong>Load Balancing:</strong> Nginx distributes traffic across 3 Flask instances</li>
+        <li>✅ <strong>MongoDB Replica Set:</strong> 1 Primary + 2 Secondary nodes for data redundancy</li>
+        <li>✅ <strong>Scalability:</strong> Horizontal scaling through container replication</li>
+        <li>✅ <strong>Document Model:</strong> Flexible schema for shipments with variable product lists</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function checkHealth() {
+    const statusBox = document.getElementById('system-status');
+    const statusContent = document.getElementById('status-content');
+    
+    statusBox.style.display = 'block';
+    statusContent.innerHTML = '<p>Checking system health...</p>';
+    
+    try {
+        const response = await fetch('/health');
+        const data = await response.json();
+        
+        const statusClass = data.status === 'healthy' ? 'success' : 'error';
+        
+        statusContent.innerHTML = `
+            <div class="status-item ${statusClass}">
+                <strong>Status:</strong> ${data.status.toUpperCase()}
+            </div>
+            <div class="status-item">
+                <strong>Server ID:</strong> ${data.server_id}
+            </div>
+            <div class="status-item">
+                <strong>Database:</strong> ${data.database}
+            </div>
+            <div class="status-item">
+                <strong>Timestamp:</strong> ${new Date(data.timestamp * 1000).toLocaleString()}
+            </div>
+        `;
+    } catch (error) {
+        statusContent.innerHTML = `<p class="error">Error checking health: ${error.message}</p>`;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: phase1_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web1
+      - web2
+      - web3
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  # Web Server Instance 1
+  web1:
+    build: ./web
+    container_name: phase1_web1
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo-primary:27017,mongo-secondary1:27017,mongo-secondary2:27017/?replicaSet=rs0
+      - SERVER_ID=web1
+    volumes:
+      - ./web:/app
+    networks:
+      - delivery-network
+    depends_on:
+      - mongo-primary
+      - mongo-secondary1
+      - mongo-secondary2
+    restart: unless-stopped
+
+  # Web Server Instance 2
+  web2:
+    build: ./web
+    container_name: phase1_web2
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo-primary:27017,mongo-secondary1:27017,mongo-secondary2:27017/?replicaSet=rs0
+      - SERVER_ID=web2
+    volumes:
+      - ./web:/app
+    networks:
+      - delivery-network
+    depends_on:
+      - mongo-primary
+      - mongo-secondary1
+      - mongo-secondary2
+    restart: unless-stopped
+
+  # Web Server Instance 3
+  web3:
+    build: ./web
+    container_name: phase1_web3
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=development
+      - MONGO_URI=mongodb://mongo-primary:27017,mongo-secondary1:27017,mongo-secondary2:27017/?replicaSet=rs0
+      - SERVER_ID=web3
+    volumes:
+      - ./web:/app
+    networks:
+      - delivery-network
+    depends_on:
+      - mongo-primary
+      - mongo-secondary1
+      - mongo-secondary2
+    restart: unless-stopped
+
+  # MongoDB Primary
+  mongo-primary:
+    image: mongo:7.0
+    container_name: phase1_mongo_primary
+    command: mongod --replSet rs0 --bind_ip_all
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-primary-data:/data/db
+      - ./mongodb/init-replica.sh:/docker-entrypoint-initdb.d/init-replica.sh
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  # MongoDB Secondary 1
+  mongo-secondary1:
+    image: mongo:7.0
+    container_name: phase1_mongo_secondary1
+    command: mongod --replSet rs0 --bind_ip_all
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo-secondary1-data:/data/db
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  # MongoDB Secondary 2
+  mongo-secondary2:
+    image: mongo:7.0
+    container_name: phase1_mongo_secondary2
+    command: mongod --replSet rs0 --bind_ip_all
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongo-secondary2-data:/data/db
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  # MongoDB Replica Set Initializer
+  mongo-init:
+    image: mongo:7.0
+    container_name: phase1_mongo_init
+    depends_on:
+      - mongo-primary
+      - mongo-secondary1
+      - mongo-secondary2
+    networks:
+      - delivery-network
+    command: >
+      bash -c "
+        sleep 10 &&
+        mongosh --host mongo-primary:27017 --eval '
+          rs.initiate({
+            _id: \"rs0\",
+            members: [
+              { _id: 0, host: \"mongo-primary:27017\", priority: 2 },
+              { _id: 1, host: \"mongo-secondary1:27017\", priority: 1 },
+              { _id: 2, host: \"mongo-secondary2:27017\", priority: 1 }
+            ]
+          });
+        ' &&
+        echo 'Replica set initialized!' &&
+        sleep 5 &&
+        mongosh --host mongo-primary:27017 --eval 'rs.status();'
+      "
+    restart: "no"
+
+volumes:
+  mongo-primary-data:
+  mongo-secondary1-data:
+  mongo-secondary2-data:
+
+networks:
+  delivery-network:
+    driver: bridge
