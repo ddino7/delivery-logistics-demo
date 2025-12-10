@@ -24,9 +24,9 @@ class MongoDBService:
                     serverSelectionTimeoutMS=5000,
                     connectTimeoutMS=5000,
                     retryWrites=True,
-                    w='majority'  # Write concern for replica set
+                    w='majority'  
                 )
-                # Test connection
+                
                 self.client.admin.command('ping')
                 self.db = self.client[self.db_name]
                 print(f"✓ Successfully connected to MongoDB: {self.db_name}")
@@ -42,14 +42,14 @@ class MongoDBService:
     def _create_indexes(self):
         """Create necessary indexes"""
         try:
-            # Shipments collection indexes
+            
             shipments = self.db['shipments']
             shipments.create_index('tracking_number', unique=True)
             shipments.create_index('status')
             shipments.create_index('created_at')
             shipments.create_index('receiver.name')
             
-            # Suppliers collection indexes
+            
             suppliers = self.db['suppliers']
             suppliers.create_index('name')
             

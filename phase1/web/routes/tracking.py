@@ -17,10 +17,10 @@ def track_shipment(tracking_number):
                 'message': 'Shipment not found'
             }), 404
         
-        # Convert ObjectId to string
+        
         shipment['_id'] = str(shipment['_id'])
         
-        # Format response for tracking
+        
         tracking_info = {
             'found': True,
             'tracking_number': shipment['tracking_number'],
@@ -53,17 +53,17 @@ def search_shipments():
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         
-        # Build query
+        
         query = {}
         if receiver_name:
             query['receiver.name'] = {'$regex': receiver_name, '$options': 'i'}
         if status:
             query['status'] = status
         
-        # Get shipments
+        
         shipments = list(collection.find(query).sort('created_at', -1).limit(50))
         
-        # Convert ObjectId to string
+        
         for shipment in shipments:
             shipment['_id'] = str(shipment['_id'])
         

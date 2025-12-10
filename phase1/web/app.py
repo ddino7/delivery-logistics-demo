@@ -8,13 +8,13 @@ import time
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialize MongoDB service
+
 db_service = MongoDBService(app.config['MONGO_URI'], app.config['MONGO_DB_NAME'])
 
-# Store db_service in app context for access in routes
+
 app.db_service = db_service
 
-# Register blueprints
+
 app.register_blueprint(shipments_bp, url_prefix='/api/shipments')
 app.register_blueprint(tracking_bp, url_prefix='/api/tracking')
 
@@ -27,7 +27,7 @@ def index():
 def health():
     """Health check endpoint"""
     try:
-        # Check MongoDB connection
+        
         db_service.get_collection('shipments').find_one()
         db_status = 'healthy'
     except Exception as e:

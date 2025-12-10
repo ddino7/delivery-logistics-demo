@@ -59,7 +59,6 @@ class Shipment:
             delivery_address=data.get('delivery_address')
         )
         
-        # Override auto-generated fields if they exist in data
         if 'tracking_number' in data:
             shipment.tracking_number = data['tracking_number']
         if 'status' in data:
@@ -95,15 +94,15 @@ class Shipment:
             if field not in data:
                 return False, f"Missing required field: {field}"
         
-        # Validate sender
+        
         if not isinstance(data['sender'], dict) or 'name' not in data['sender']:
             return False, "Invalid sender data"
         
-        # Validate receiver
+        
         if not isinstance(data['receiver'], dict) or 'name' not in data['receiver']:
             return False, "Invalid receiver data"
         
-        # Validate weight
+        
         try:
             weight = float(data['weight'])
             if weight <= 0:

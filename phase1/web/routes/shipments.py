@@ -10,12 +10,12 @@ def create_shipment():
     try:
         data = request.get_json()
         
-        # Validate data
+        
         is_valid, error = Shipment.validate_data(data)
         if not is_valid:
             return jsonify({'error': error}), 400
         
-        # Create shipment
+        
         shipment = Shipment(
             sender=data['sender'],
             receiver=data['receiver'],
@@ -25,7 +25,7 @@ def create_shipment():
             delivery_address=data['delivery_address']
         )
         
-        # Save to database
+        
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         result = collection.insert_one(shipment.to_dict())
@@ -51,7 +51,7 @@ def get_shipment(tracking_number):
         if not shipment:
             return jsonify({'error': 'Shipment not found'}), 404
         
-        # Convert ObjectId to string
+        
         shipment['_id'] = str(shipment['_id'])
         
         return jsonify(shipment), 200
@@ -76,16 +76,16 @@ def update_status(tracking_number):
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         
-        # Find shipment
+        
         shipment_data = collection.find_one({'tracking_number': tracking_number})
         if not shipment_data:
             return jsonify({'error': 'Shipment not found'}), 404
         
-        # Update status
+        
         shipment = Shipment.from_dict(shipment_data)
         shipment.update_status(new_status, note)
         
-        # Save to database
+        
         collection.update_one(
             {'tracking_number': tracking_number},
             {'$set': {
@@ -110,7 +110,7 @@ def update_status(tracking_number):
 def list_shipments():
     """List all shipments with optional filtering"""
     try:
-        # Get query parameters
+        
         status = request.args.get('status')
         limit = int(request.args.get('limit', 50))
         skip = int(request.args.get('skip', 0))
@@ -118,15 +118,15 @@ def list_shipments():
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         
-        # Build query
+        
         query = {}
         if status:
             query['status'] = status
         
-        # Get shipments
+        
         shipments = list(collection.find(query).sort('created_at', -1).limit(limit).skip(skip))
         
-        # Convert ObjectId to string
+        
         for shipment in shipments:
             shipment['_id'] = str(shipment['_id'])
         

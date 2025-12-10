@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# MongoDB Replica Set Initialization Script
-# This script initializes a MongoDB replica set with 1 primary and 2 secondary nodes
-
 echo "Waiting for MongoDB to be ready..."
 sleep 10
 
