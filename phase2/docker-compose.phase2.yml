@@ -33,7 +33,6 @@ services:
       - SERVER_ID=web1
     volumes:
       - ../phase1/web:/app
-      - ./web-extensions:/app/extensions
     networks:
       - delivery-network
     depends_on:
@@ -57,7 +56,6 @@ services:
       - SERVER_ID=web2
     volumes:
       - ../phase1/web:/app
-      - ./web-extensions:/app/extensions
     networks:
       - delivery-network
     depends_on:
@@ -81,7 +79,6 @@ services:
       - SERVER_ID=web3
     volumes:
       - ../phase1/web:/app
-      - ./web-extensions:/app/extensions
     networks:
       - delivery-network
     depends_on:
