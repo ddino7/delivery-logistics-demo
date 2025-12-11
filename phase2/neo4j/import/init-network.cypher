@@ -1,6 +1,10 @@
+// Initialize Logistics Network
+// Distribution Centers and Warehouses for Croatia
+
+// Clear existing data (for testing)
 MATCH (n) DETACH DELETE n;
 
-
+// Create Distribution Centers (Main hubs)
 CREATE (dc_zg:DistributionCenter {
   id: 'DC_ZG',
   name: 'Zagreb Distribution Center',
@@ -45,7 +49,7 @@ CREATE (dc_os:DistributionCenter {
   lon: 18.6955
 });
 
-
+// Create Warehouses (Secondary hubs)
 CREATE (wh_ka:Warehouse {
   id: 'WH_KA',
   name: 'Karlovac Warehouse',
@@ -123,7 +127,7 @@ CREATE (wh_si:Warehouse {
   lon: 15.8952
 });
 
-
+// Create Routes between Distribution Centers (main highways)
 MATCH (dc_zg:DistributionCenter {id: 'DC_ZG'})
 MATCH (dc_st:DistributionCenter {id: 'DC_ST'})
 CREATE (dc_zg)-[:ROUTE {
@@ -174,7 +178,7 @@ CREATE (dc_st)-[:ROUTE {
   active: true
 }]->(dc_os);
 
-
+// Connect Warehouses to Distribution Centers
 MATCH (dc_zg:DistributionCenter {id: 'DC_ZG'})
 MATCH (wh_ka:Warehouse {id: 'WH_KA'})
 CREATE (dc_zg)-[:ROUTE {
@@ -245,7 +249,7 @@ CREATE (dc_os)-[:ROUTE {
   active: true
 }]->(wh_sb);
 
-
+// Bidirectional routes (create reverse routes)
 MATCH (a)-[r:ROUTE]->(b)
 WHERE NOT EXISTS((b)-[:ROUTE]->(a))
 CREATE (b)-[:ROUTE {
@@ -256,13 +260,13 @@ CREATE (b)-[:ROUTE {
   active: r.active
 }]->(a);
 
-
+// Create indexes for performance
 CREATE INDEX dc_id IF NOT EXISTS FOR (dc:DistributionCenter) ON (dc.id);
 CREATE INDEX dc_city IF NOT EXISTS FOR (dc:DistributionCenter) ON (dc.city);
 CREATE INDEX wh_id IF NOT EXISTS FOR (wh:Warehouse) ON (wh.id);
 CREATE INDEX wh_city IF NOT EXISTS FOR (wh:Warehouse) ON (wh.city);
 
-
+// Return summary
 MATCH (dc:DistributionCenter) 
 WITH count(dc) as dcCount
 MATCH (wh:Warehouse)

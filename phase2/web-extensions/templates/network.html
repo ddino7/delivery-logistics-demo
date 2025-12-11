@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logistics Network - Phase 2</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🚚 Delivery System - Phase 2</h1>
+                <span class="server-badge">Server: {{ server_id }}</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/">Home</a></li>
+                <li><a href="/create">Create Shipment</a></li>
+                <li><a href="/track">Track Shipment</a></li>
+                <li><a href="/network">Network</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h1>🗺️ Logistics Network</h1>
+        </div>
+
+        <div class="network-container">
+            <div class="route-calculator">
+                <h2>Calculate Optimal Route</h2>
+                <form id="routeForm">
+                    <div class="form-group">
+                        <label>From City:</label>
+                        <input type="text" id="from_city" list="cities" required>
+                    </div>
+                    <div class="form-group">
+                        <label>To City:</label>
+                        <input type="text" id="to_city" list="cities" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Optimize By:</label>
+                        <select id="optimize_by">
+                            <option value="distance">Distance (km)</option>
+                            <option value="time">Time (hours)</option>
+                            <option value="cost">Cost (EUR)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calculate Route</button>
+                </form>
+                
+                <datalist id="cities">
+                    <option value="Zagreb">
+                    <option value="Split">
+                    <option value="Rijeka">
+                    <option value="Osijek">
+                    <option value="Karlovac">
+                    <option value="Zadar">
+                    <option value="Pula">
+                    <option value="Dubrovnik">
+                    <option value="Šibenik">
+                    <option value="Varaždin">
+                    <option value="Slavonski Brod">
+                </datalist>
+            </div>
+
+            <div id="route-result" style="display:none;"></div>
+
+            <div class="network-stats">
+                <h2>Network Statistics</h2>
+                <div id="stats-content">Loading...</div>
+            </div>
+
+            <div class="locations-list">
+                <h2>All Locations</h2>
+                <div id="locations-content">Loading...</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Load statistics
+        fetch('/api/network/statistics')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('stats-content').innerHTML = `
+                    <p><strong>Distribution Centers:</strong> ${data.distribution_centers}</p>
+                    <p><strong>Warehouses:</strong> ${data.warehouses}</p>
+                    <p><strong>Total Routes:</strong> ${data.total_routes}</p>
+                    <p><strong>Network Distance:</strong> ${data.total_network_distance_km} km</p>
+                    <p><strong>Avg Route Distance:</strong> ${data.avg_route_distance_km} km</p>
+                `;
+            });
+
+        // Load locations
+        fetch('/api/network/locations')
+            .then(r => r.json())
+            .then(data => {
+                const html = data.locations.map(loc => `
+                    <div class="location-item">
+                        <strong>${loc.name}</strong> (${loc.city})
+                        <br>Type: ${loc.node_type} | Capacity: ${loc.capacity}
+                    </div>
+                `).join('');
+                document.getElementById('locations-content').innerHTML = html;
+            });
+
+        // Route calculator
+        document.getElementById('routeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const from = document.getElementById('from_city').value;
+            const to = document.getElementById('to_city').value;
+            const optimize = document.getElementById('optimize_by').value;
+            
+            const resultDiv = document.getElementById('route-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>Calculating route...</p>';
+            
+            try {
+                const response = await fetch(`/api/network/routes?from=${from}&to=${to}&optimize_by=${optimize}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const path = data.path;
+                    resultDiv.innerHTML = `
+                        <h3>Optimal Route: ${from} → ${to}</h3>
+                        <p><strong>Total Distance:</strong> ${path.total_distance_km} km</p>
+                        <p><strong>Total Time:</strong> ${path.total_time_hours} hours</p>
+                        <p><strong>Total Cost:</strong> ${path.total_cost_eur} EUR</p>
+                        <h4>Route:</h4>
+                        <ol>
+                            ${path.locations.map((loc, i) => `
+                                <li>${loc.name} (${loc.city})${i < path.routes.length ? ` → ${path.routes[i].distance} km` : ''}</li>
+                            `).join('')}
+                        </ol>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">${data.error}</p>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
