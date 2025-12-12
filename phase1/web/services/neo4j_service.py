@@ -1,241 +1,218 @@
 from neo4j import GraphDatabase
-from typing import Dict, List, Optional
-import logging
-
-logger = logging.getLogger(__name__)
+import time
 
 class Neo4jService:
-    def __init__(self, uri: str, user: str, password: str):
-        self.driver = GraphDatabase.driver(uri, auth=(user, password))
-        logger.info(f"Neo4j service initialized: {uri}")
+    """Service for Neo4j graph database operations"""
+    
+    def __init__(self, uri, user, password, max_retries=5, retry_delay=2):
+        self.uri = uri
+        self.user = user
+        self.password = password
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.driver = None
+        self._connect()
+    
+    def _connect(self):
+        """Connect to Neo4j with retry logic"""
+        for attempt in range(self.max_retries):
+            try:
+                print(f"Attempting to connect to Neo4j (attempt {attempt + 1}/{self.max_retries})...")
+                self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
+                # Test connection
+                with self.driver.session() as session:
+                    session.run("RETURN 1")
+                print(f"✓ Successfully connected to Neo4j")
+                return
+            except Exception as e:
+                print(f"✗ Connection attempt {attempt + 1} failed: {e}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay)
+                else:
+                    print("⚠ Warning: Could not connect to Neo4j. Graph features will be unavailable.")
+                    self.driver = None
     
     def close(self):
-        self.driver.close()
+        """Close the Neo4j connection"""
+        if self.driver:
+            self.driver.close()
+            print("✓ Neo4j connection closed")
     
-    def get_network_statistics(self) -> Dict:
-        """Get network statistics"""
-        with self.driver.session() as session:
-            result = session.run("""
-                MATCH (dc:DistributionCenter)
-                WITH count(dc) as dcCount
-                MATCH (wh:Warehouse)
-                WITH dcCount, count(wh) as whCount
-                MATCH ()-[r:ROUTE]->()
-                RETURN dcCount as distribution_centers,
-                       whCount as warehouses,
-                       count(r) as routes
-            """)
-            record = result.single()
-            if record:
-                return {
-                    'distribution_centers': record['distribution_centers'],
-                    'warehouses': record['warehouses'],
-                    'routes': record['routes'],
-                    'total_locations': record['distribution_centers'] + record['warehouses']
-                }
-            return {'distribution_centers': 0, 'warehouses': 0, 'routes': 0, 'total_locations': 0}
-    
-    def get_all_locations(self) -> List[Dict]:
+    def get_all_locations(self):
         """Get all distribution centers and warehouses"""
+        if not self.driver:
+            return []
+        
+        query = """
+        MATCH (n)
+        WHERE n:DistributionCenter OR n:Warehouse
+        RETURN n.id as id, n.name as name, n.city as city, 
+               n.type as type, n.capacity as capacity,
+               n.lat as lat, n.lon as lon,
+               labels(n)[0] as node_type
+        ORDER BY n.city
+        """
+        
         with self.driver.session() as session:
-            result = session.run("""
-                MATCH (n)
-                WHERE n:DistributionCenter OR n:Warehouse
-                RETURN n.id as id,
-                       n.name as name,
-                       n.city as city,
-                       n.address as address,
-                       labels(n)[0] as type,
-                       n.capacity as capacity,
-                       n.lat as lat,
-                       n.lon as lon
-                ORDER BY n.city
-            """)
+            result = session.run(query)
             return [dict(record) for record in result]
     
-    def get_network_graph(self) -> Dict:
-        """Get complete network graph for visualization"""
+    def get_location_by_id(self, location_id):
+        """Get specific location by ID"""
+        if not self.driver:
+            return None
+        
+        query = """
+        MATCH (n)
+        WHERE (n:DistributionCenter OR n:Warehouse) AND n.id = $id
+        RETURN n.id as id, n.name as name, n.city as city,
+               n.address as address, n.type as type, 
+               n.capacity as capacity, n.lat as lat, n.lon as lon,
+               labels(n)[0] as node_type
+        """
+        
         with self.driver.session() as session:
-            # Get nodes
-            nodes_result = session.run("""
-                MATCH (n)
-                WHERE n:DistributionCenter OR n:Warehouse
-                RETURN n.id as id,
-                       n.name as name,
-                       n.city as city,
-                       labels(n)[0] as type,
-                       n.lat as lat,
-                       n.lon as lon
-            """)
-            nodes = [dict(record) for record in nodes_result]
-            
-            # Get edges
-            edges_result = session.run("""
-                MATCH (a)-[r:ROUTE]->(b)
-                WHERE r.active = true
-                RETURN a.id as source,
-                       b.id as target,
-                       r.distance_km as distance,
-                       r.avg_time_hours as time,
-                       r.cost_per_km as cost_per_km,
-                       r.road_type as road_type
-            """)
-            edges = [dict(record) for record in edges_result]
-            
-            return {'nodes': nodes, 'edges': edges}
-    
-    def find_city_location(self, city: str) -> Optional[str]:
-        """Find location ID by city name"""
-        with self.driver.session() as session:
-            result = session.run("""
-                MATCH (n)
-                WHERE (n:DistributionCenter OR n:Warehouse)
-                  AND toLower(n.city) = toLower($city)
-                RETURN n.id as id
-                LIMIT 1
-            """, city=city)
+            result = session.run(query, id=location_id)
             record = result.single()
-            return record['id'] if record else None
+            return dict(record) if record else None
     
-    def calculate_optimal_route(self, origin_city: str, destination_city: str, 
-                               optimization: str = 'distance') -> Dict:
-        """
-        Calculate optimal route between two cities
+    def get_location_by_city(self, city):
+        """Get locations in a specific city"""
+        if not self.driver:
+            return []
         
-        Args:
-            origin_city: Starting city
-            destination_city: Destination city
-            optimization: 'distance', 'time', or 'cost'
-        
-        Returns:
-            Dict with route details including path, total distance, time, and cost
+        query = """
+        MATCH (n)
+        WHERE (n:DistributionCenter OR n:Warehouse) AND n.city = $city
+        RETURN n.id as id, n.name as name, n.city as city,
+               n.type as type, n.capacity as capacity,
+               labels(n)[0] as node_type
         """
-        # Map optimization to relationship property
+        
+        with self.driver.session() as session:
+            result = session.run(query, city=city)
+            return [dict(record) for record in result]
+    
+    def get_routes_from_location(self, location_id):
+        """Get all routes from a specific location"""
+        if not self.driver:
+            return []
+        
+        query = """
+        MATCH (start)-[r:ROUTE]->(end)
+        WHERE start.id = $location_id
+        RETURN start.id as from_id, start.name as from_name, start.city as from_city,
+               end.id as to_id, end.name as to_name, end.city as to_city,
+               r.distance_km as distance, r.avg_time_hours as time,
+               r.cost_per_km as cost_per_km, r.road_type as road_type
+        """
+        
+        with self.driver.session() as session:
+            result = session.run(query, location_id=location_id)
+            return [dict(record) for record in result]
+    
+    def find_shortest_path(self, from_city, to_city, optimize_by='distance'):
+        """
+        Find shortest path between two cities
+        optimize_by: 'distance' (km), 'time' (hours), or 'cost' (EUR)
+        """
+        if not self.driver:
+            return None
+        
+        # Map optimization parameter to relationship property
         weight_property = {
             'distance': 'distance_km',
             'time': 'avg_time_hours',
-            'cost': 'cost_per_km'
-        }.get(optimization, 'distance_km')
+            'cost': 'distance_km'  # cost = distance * cost_per_km
+        }.get(optimize_by, 'distance_km')
+        
+        query = """
+        MATCH (start), (end)
+        WHERE (start:DistributionCenter OR start:Warehouse) AND start.city = $from_city
+          AND (end:DistributionCenter OR end:Warehouse) AND end.city = $to_city
+        MATCH path = shortestPath((start)-[:ROUTE*]-(end))
+        WITH path, 
+             reduce(dist = 0, r in relationships(path) | dist + r.distance_km) as total_distance,
+             reduce(time = 0, r in relationships(path) | time + r.avg_time_hours) as total_time,
+             reduce(cost = 0, r in relationships(path) | cost + r.distance_km * r.cost_per_km) as total_cost
+        RETURN 
+            [n in nodes(path) | {id: n.id, name: n.name, city: n.city, type: labels(n)[0]}] as locations,
+            [r in relationships(path) | {distance: r.distance_km, time: r.avg_time_hours, road_type: r.road_type}] as routes,
+            total_distance,
+            total_time,
+            total_cost
+        ORDER BY 
+            CASE $optimize_by
+                WHEN 'distance' THEN total_distance
+                WHEN 'time' THEN total_time
+                WHEN 'cost' THEN total_cost
+                ELSE total_distance
+            END
+        LIMIT 1
+        """
         
         with self.driver.session() as session:
-            result = session.run(f"""
-                MATCH (start), (end)
-                WHERE (start:DistributionCenter OR start:Warehouse)
-                  AND (end:DistributionCenter OR end:Warehouse)
-                  AND toLower(start.city) = toLower($origin)
-                  AND toLower(end.city) = toLower($destination)
-                
-                CALL {{
-                    WITH start, end
-                    MATCH path = shortestPath((start)-[:ROUTE*]-(end))
-                    WHERE all(r IN relationships(path) WHERE r.active = true)
-                    RETURN path,
-                           reduce(dist = 0, r IN relationships(path) | dist + r.distance_km) as total_distance,
-                           reduce(time = 0, r IN relationships(path) | time + r.avg_time_hours) as total_time,
-                           reduce(cost = 0, r IN relationships(path) | cost + r.distance_km * r.cost_per_km) as total_cost
-                    ORDER BY CASE
-                        WHEN '{optimization}' = 'distance' THEN total_distance
-                        WHEN '{optimization}' = 'time' THEN total_time
-                        WHEN '{optimization}' = 'cost' THEN total_cost
-                        ELSE total_distance
-                    END
-                    LIMIT 1
-                }}
-                
-                WITH path, total_distance, total_time, total_cost,
-                     [node IN nodes(path) | {{
-                         id: node.id,
-                         name: node.name,
-                         city: node.city,
-                         type: labels(node)[0]
-                     }}] as locations,
-                     [rel IN relationships(path) | {{
-                         distance_km: rel.distance_km,
-                         time_hours: rel.avg_time_hours,
-                         cost: rel.distance_km * rel.cost_per_km,
-                         road_type: rel.road_type
-                     }}] as segments
-                
-                RETURN locations,
-                       segments,
-                       total_distance,
-                       total_time,
-                       total_cost,
-                       size(locations) - 1 as stops
-            """, origin=origin_city, destination=destination_city, optimization=optimization)
-            
+            result = session.run(query, from_city=from_city, to_city=to_city, optimize_by=optimize_by)
             record = result.single()
+            
             if not record:
-                return {
-                    'found': False,
-                    'error': f'No route found between {origin_city} and {destination_city}'
-                }
+                return None
             
             return {
-                'found': True,
-                'origin': origin_city,
-                'destination': destination_city,
-                'optimization': optimization,
-                'route': {
-                    'locations': record['locations'],
-                    'segments': record['segments'],
-                    'total_distance_km': round(record['total_distance'], 2),
-                    'total_time_hours': round(record['total_time'], 2),
-                    'total_cost': round(record['total_cost'], 2),
-                    'stops': record['stops']
-                }
+                'locations': record['locations'],
+                'routes': record['routes'],
+                'total_distance_km': round(record['total_distance'], 2),
+                'total_time_hours': round(record['total_time'], 2),
+                'total_cost_eur': round(record['total_cost'], 2),
+                'optimize_by': optimize_by
             }
     
-    def calculate_route_for_shipment(self, shipment: Dict, optimization: str = 'distance') -> Dict:
+    def get_network_statistics(self):
+        """Get statistics about the logistics network"""
+        if not self.driver:
+            return {}
+        
+        query = """
+        MATCH (dc:DistributionCenter)
+        WITH count(dc) as dcCount
+        MATCH (wh:Warehouse)
+        WITH dcCount, count(wh) as whCount
+        MATCH ()-[r:ROUTE]->()
+        WITH dcCount, whCount, count(r) as routeCount,
+             sum(r.distance_km) as totalDistance,
+             avg(r.distance_km) as avgDistance
+        RETURN dcCount as distribution_centers,
+               whCount as warehouses,
+               routeCount as total_routes,
+               round(totalDistance, 2) as total_network_distance_km,
+               round(avgDistance, 2) as avg_route_distance_km
         """
-        Calculate optimal route for a shipment based on sender and receiver cities
         
-        Args:
-            shipment: Shipment dict from MongoDB with sender/receiver info
-            optimization: 'distance', 'time', or 'cost'
-        """
-        sender_city = shipment.get('sender', {}).get('city', '')
-        receiver_city = shipment.get('receiver', {}).get('city', '')
+        with self.driver.session() as session:
+            result = session.run(query)
+            record = result.single()
+            return dict(record) if record else {}
+    
+    def initialize_network(self, cypher_file_path):
+        """Initialize network from Cypher file"""
+        if not self.driver:
+            print("⚠ Cannot initialize network: Neo4j not connected")
+            return False
         
-        if not sender_city or not receiver_city:
-            return {
-                'found': False,
-                'error': 'Missing sender or receiver city in shipment'
-            }
-        
-        route_result = self.calculate_optimal_route(sender_city, receiver_city, optimization)
-        
-        if route_result['found']:
-            route_result['shipment_tracking_number'] = shipment.get('tracking_number')
-            route_result['weight_kg'] = shipment.get('weight', 0)
+        try:
+            with open(cypher_file_path, 'r') as f:
+                cypher_script = f.read()
             
-        return route_result
-    
-    def get_routes_from_location(self, location_id: str) -> List[Dict]:
-        """Get all routes from a specific location"""
-        with self.driver.session() as session:
-            result = session.run("""
-                MATCH (start {id: $location_id})-[r:ROUTE]->(end)
-                WHERE r.active = true
-                RETURN end.id as destination_id,
-                       end.name as destination_name,
-                       end.city as destination_city,
-                       labels(end)[0] as destination_type,
-                       r.distance_km as distance,
-                       r.avg_time_hours as time,
-                       r.cost_per_km as cost_per_km,
-                       r.road_type as road_type
-                ORDER BY r.distance_km
-            """, location_id=location_id)
-            return [dict(record) for record in result]
-    
-    def get_all_cities(self) -> List[str]:
-        """Get list of all available cities"""
-        with self.driver.session() as session:
-            result = session.run("""
-                MATCH (n)
-                WHERE n:DistributionCenter OR n:Warehouse
-                RETURN DISTINCT n.city as city
-                ORDER BY n.city
-            """)
-            return [record['city'] for record in result]
+            # Split by semicolons and execute each statement
+            statements = [s.strip() for s in cypher_script.split(';') if s.strip()]
+            
+            with self.driver.session() as session:
+                for statement in statements:
+                    if statement and not statement.startswith('//'):
+                        session.run(statement)
+            
+            print(f"✓ Network initialized from {cypher_file_path}")
+            return True
+        except Exception as e:
+            print(f"✗ Failed to initialize network: {e}")
+            return False
