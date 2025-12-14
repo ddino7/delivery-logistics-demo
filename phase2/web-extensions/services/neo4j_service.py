@@ -97,34 +97,51 @@ class Neo4jService:
             return [dict(record) for record in result]
     
     def find_shortest_path(self, from_city, to_city, optimize_by='distance'):
+        """
+        Find optimal route between two cities based on optimization parameter.
+        
+        Args:
+            from_city (str): Origin city
+            to_city (str): Destination city
+            optimize_by (str): Optimization parameter - 'distance', 'time', or 'cost'
+        
+        Returns:
+            dict: Route information with locations, routes, and totals
+        """
         if not self.driver:
             return None
-        query = """
+        
+        # Mapiranje parametara optimizacije na atribute rute
+        order_field_map = {
+            'distance': 'r.distance_km',
+            'time': 'r.avg_time_hours',
+            'cost': '(r.distance_km * r.cost_per_km)'
+        }
+        order_field = order_field_map.get(optimize_by, 'r.distance_km')
+        
+        # Koristimo f-string za dinamičko postavljanje ORDER BY polja
+        query = f"""
         MATCH (start), (end)
         WHERE (start:DistributionCenter OR start:Warehouse) AND start.city = $from_city
           AND (end:DistributionCenter OR end:Warehouse) AND end.city = $to_city
-        MATCH path = shortestPath((start)-[:ROUTE*]-(end))
-        WITH path, 
-             reduce(dist = 0, r in relationships(path) | dist + r.distance_km) as total_distance,
-             reduce(time = 0, r in relationships(path) | time + r.avg_time_hours) as total_time,
-             reduce(cost = 0, r in relationships(path) | cost + r.distance_km * r.cost_per_km) as total_cost
+        MATCH (start)-[r:ROUTE]->(end)
+        WITH start, end, r,
+             r.distance_km as distance,
+             r.avg_time_hours as time,
+             (r.distance_km * r.cost_per_km) as cost
         RETURN 
-            [n in nodes(path) | {id: n.id, name: n.name, city: n.city, type: labels(n)[0]}] as locations,
-            [r in relationships(path) | {distance: r.distance_km, time: r.avg_time_hours, road_type: r.road_type}] as routes,
-            total_distance,
-            total_time,
-            total_cost
-        ORDER BY 
-            CASE $optimize_by
-                WHEN 'distance' THEN total_distance
-                WHEN 'time' THEN total_time
-                WHEN 'cost' THEN total_cost
-                ELSE total_distance
-            END
+            [{{id: start.id, name: start.name, city: start.city, type: labels(start)[0]}}] + 
+            [{{id: end.id, name: end.name, city: end.city, type: labels(end)[0]}}] as locations,
+            [{{distance: r.distance_km, time: r.avg_time_hours, road_type: r.road_type, cost_per_km: r.cost_per_km}}] as routes,
+            distance as total_distance,
+            time as total_time,
+            cost as total_cost
+        ORDER BY {order_field} ASC
         LIMIT 1
         """
+        
         with self.driver.session() as session:
-            result = session.run(query, from_city=from_city, to_city=to_city, optimize_by=optimize_by)
+            result = session.run(query, from_city=from_city, to_city=to_city)
             record = result.single()
             if not record:
                 return None

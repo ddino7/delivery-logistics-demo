@@ -29,41 +29,56 @@
 
         <div class="network-container">
             <div class="route-calculator">
-                <h2>Calculate Optimal Route</h2>
-                <form id="routeForm">
-                    <div class="form-group">
-                        <label>From City:</label>
-                        <input type="text" id="from_city" list="cities" required>
-                    </div>
-                    <div class="form-group">
-                        <label>To City:</label>
-                        <input type="text" id="to_city" list="cities" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Optimize By:</label>
-                        <select id="optimize_by">
-                            <option value="distance">Distance (km)</option>
-                            <option value="time">Time (hours)</option>
-                            <option value="cost">Cost (EUR)</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Calculate Route</button>
-                </form>
-                
-                <datalist id="cities">
-                    <option value="Zagreb">
-                    <option value="Split">
-                    <option value="Rijeka">
-                    <option value="Osijek">
-                    <option value="Karlovac">
-                    <option value="Zadar">
-                    <option value="Pula">
-                    <option value="Dubrovnik">
-                    <option value="Šibenik">
-                    <option value="Varaždin">
-                    <option value="Slavonski Brod">
-                </datalist>
-            </div>
+    <h2>Calculate Optimal Route</h2>
+    <form id="routeForm">
+        <div class="form-group">
+            <label>From City:</label>
+            <select id="from_city" required>
+                <option value="" disabled selected>-- Select city --</option>
+                <option value="Zagreb">Zagreb</option>
+                <option value="Split">Split</option>
+                <option value="Rijeka">Rijeka</option>
+                <option value="Osijek">Osijek</option>
+                <option value="Karlovac">Karlovac</option>
+                <option value="Zadar">Zadar</option>
+                <option value="Pula">Pula</option>
+                <option value="Dubrovnik">Dubrovnik</option>
+                <option value="Sibenik">Šibenik</option>
+                <option value="Varazdin">Varaždin</option>
+                <option value="Slavonski Brod">Slavonski Brod</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>To City:</label>
+            <select id="to_city" required>
+                <option value="" disabled selected>-- Select city --</option>
+                <option value="Zagreb">Zagreb</option>
+                <option value="Split">Split</option>
+                <option value="Rijeka">Rijeka</option>
+                <option value="Osijek">Osijek</option>
+                <option value="Karlovac">Karlovac</option>
+                <option value="Zadar">Zadar</option>
+                <option value="Pula">Pula</option>
+                <option value="Dubrovnik">Dubrovnik</option>
+                <option value="Sibenik">Šibenik</option>
+                <option value="Varazdin">Varaždin</option>
+                <option value="Slavonski Brod">Slavonski Brod</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Optimize By:</label>
+            <select id="optimize_by">
+                <option value="distance">Distance (km)</option>
+                <option value="time">Time (hours)</option>
+                <option value="cost">Cost (EUR)</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Calculate Route</button>
+    </form>
+</div>
 
             <div id="route-result" style="display:none;"></div>
 

@@ -19,7 +19,6 @@ class Neo4jService:
             try:
                 print(f"Attempting to connect to Neo4j (attempt {attempt + 1}/{self.max_retries})...")
                 self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
-                # Test connection
                 with self.driver.session() as session:
                     session.run("RETURN 1")
                 print(f"✓ Successfully connected to Neo4j")
@@ -33,16 +32,12 @@ class Neo4jService:
                     self.driver = None
     
     def close(self):
-        """Close the Neo4j connection"""
         if self.driver:
             self.driver.close()
-            print("✓ Neo4j connection closed")
     
     def get_all_locations(self):
-        """Get all distribution centers and warehouses"""
         if not self.driver:
             return []
-        
         query = """
         MATCH (n)
         WHERE n:DistributionCenter OR n:Warehouse
@@ -52,16 +47,13 @@ class Neo4jService:
                labels(n)[0] as node_type
         ORDER BY n.city
         """
-        
         with self.driver.session() as session:
             result = session.run(query)
             return [dict(record) for record in result]
     
     def get_location_by_id(self, location_id):
-        """Get specific location by ID"""
         if not self.driver:
             return None
-        
         query = """
         MATCH (n)
         WHERE (n:DistributionCenter OR n:Warehouse) AND n.id = $id
@@ -70,17 +62,14 @@ class Neo4jService:
                n.capacity as capacity, n.lat as lat, n.lon as lon,
                labels(n)[0] as node_type
         """
-        
         with self.driver.session() as session:
             result = session.run(query, id=location_id)
             record = result.single()
             return dict(record) if record else None
     
     def get_location_by_city(self, city):
-        """Get locations in a specific city"""
         if not self.driver:
             return []
-        
         query = """
         MATCH (n)
         WHERE (n:DistributionCenter OR n:Warehouse) AND n.city = $city
@@ -88,16 +77,13 @@ class Neo4jService:
                n.type as type, n.capacity as capacity,
                labels(n)[0] as node_type
         """
-        
         with self.driver.session() as session:
             result = session.run(query, city=city)
             return [dict(record) for record in result]
     
     def get_routes_from_location(self, location_id):
-        """Get all routes from a specific location"""
         if not self.driver:
             return []
-        
         query = """
         MATCH (start)-[r:ROUTE]->(end)
         WHERE start.id = $location_id
@@ -106,55 +92,75 @@ class Neo4jService:
                r.distance_km as distance, r.avg_time_hours as time,
                r.cost_per_km as cost_per_km, r.road_type as road_type
         """
-        
         with self.driver.session() as session:
             result = session.run(query, location_id=location_id)
             return [dict(record) for record in result]
     
     def find_shortest_path(self, from_city, to_city, optimize_by='distance'):
         """
-        Find shortest path between two cities
-        optimize_by: 'distance' (km), 'time' (hours), or 'cost' (EUR)
+        Find optimal route between two cities based on optimization parameter.
+        Searches for both direct and multi-hop routes (up to 3 intermediate cities).
+        
+        Args:
+            from_city (str): Origin city
+            to_city (str): Destination city
+            optimize_by (str): Optimization parameter - 'distance', 'time', or 'cost'
+        
+        Returns:
+            dict: Route information with locations, routes, and totals
         """
         if not self.driver:
             return None
         
-        # Map optimization parameter to relationship property
-        weight_property = {
-            'distance': 'distance_km',
-            'time': 'avg_time_hours',
-            'cost': 'distance_km'  # cost = distance * cost_per_km
-        }.get(optimize_by, 'distance_km')
+        # Upit koji pronalazi sve moguće puteve (direktne i multi-hop)
+        # Ograničavamo na maksimalno 3 "skoka" da ne dođe do prevelikog broja kombinacija
         
-        query = """
+        # Moramo koristiti različite upite jer Neo4j CASE statement ne podržava parametre dobro
+        if optimize_by == 'distance':
+            order_clause = "ORDER BY totalDistance ASC"
+        elif optimize_by == 'time':
+            order_clause = "ORDER BY totalTime ASC"
+        elif optimize_by == 'cost':
+            order_clause = "ORDER BY totalCost ASC"
+        else:
+            order_clause = "ORDER BY totalDistance ASC"
+        
+        query = f"""
         MATCH (start), (end)
         WHERE (start:DistributionCenter OR start:Warehouse) AND start.city = $from_city
           AND (end:DistributionCenter OR end:Warehouse) AND end.city = $to_city
-        MATCH path = shortestPath((start)-[:ROUTE*]-(end))
-        WITH path, 
-             reduce(dist = 0, r in relationships(path) | dist + r.distance_km) as total_distance,
-             reduce(time = 0, r in relationships(path) | time + r.avg_time_hours) as total_time,
-             reduce(cost = 0, r in relationships(path) | cost + r.distance_km * r.cost_per_km) as total_cost
-        RETURN 
-            [n in nodes(path) | {id: n.id, name: n.name, city: n.city, type: labels(n)[0]}] as locations,
-            [r in relationships(path) | {distance: r.distance_km, time: r.avg_time_hours, road_type: r.road_type}] as routes,
-            total_distance,
-            total_time,
-            total_cost
-        ORDER BY 
-            CASE $optimize_by
-                WHEN 'distance' THEN total_distance
-                WHEN 'time' THEN total_time
-                WHEN 'cost' THEN total_cost
-                ELSE total_distance
-            END
+        
+        // Pronađi sve puteve između start i end (do maksimalno 3 međustanice)
+        MATCH path = (start)-[:ROUTE*1..4]->(end)
+        
+        // Filtriranje: ne želimo da se isti grad ponavlja u ruti (ciklusi)
+        WHERE ALL(n IN nodes(path)[1..-1] WHERE single(m IN nodes(path) WHERE m = n))
+        
+        WITH path,
+             relationships(path) as rels,
+             nodes(path) as nodes
+        
+        // Izračunaj ukupne metrike za svaki path
+        WITH nodes, rels,
+             reduce(dist = 0, r in rels | dist + r.distance_km) as totalDistance,
+             reduce(time = 0, r in rels | time + r.avg_time_hours) as totalTime,
+             reduce(cost = 0, r in rels | cost + (r.distance_km * r.cost_per_km)) as totalCost
+        
+        // Sortiraj prema odabranom parametru optimizacije
+        {order_clause}
         LIMIT 1
+        
+        RETURN 
+            [n in nodes | {{id: n.id, name: n.name, city: n.city, type: labels(n)[0]}}] as locations,
+            [r in rels | {{distance: r.distance_km, time: r.avg_time_hours, road_type: r.road_type, cost_per_km: r.cost_per_km}}] as routes,
+            totalDistance as total_distance,
+            totalTime as total_time,
+            totalCost as total_cost
         """
         
         with self.driver.session() as session:
-            result = session.run(query, from_city=from_city, to_city=to_city, optimize_by=optimize_by)
+            result = session.run(query, from_city=from_city, to_city=to_city)
             record = result.single()
-            
             if not record:
                 return None
             
@@ -168,10 +174,8 @@ class Neo4jService:
             }
     
     def get_network_statistics(self):
-        """Get statistics about the logistics network"""
         if not self.driver:
             return {}
-        
         query = """
         MATCH (dc:DistributionCenter)
         WITH count(dc) as dcCount
@@ -187,32 +191,7 @@ class Neo4jService:
                round(totalDistance, 2) as total_network_distance_km,
                round(avgDistance, 2) as avg_route_distance_km
         """
-        
         with self.driver.session() as session:
             result = session.run(query)
             record = result.single()
             return dict(record) if record else {}
-    
-    def initialize_network(self, cypher_file_path):
-        """Initialize network from Cypher file"""
-        if not self.driver:
-            print("⚠ Cannot initialize network: Neo4j not connected")
-            return False
-        
-        try:
-            with open(cypher_file_path, 'r') as f:
-                cypher_script = f.read()
-            
-            # Split by semicolons and execute each statement
-            statements = [s.strip() for s in cypher_script.split(';') if s.strip()]
-            
-            with self.driver.session() as session:
-                for statement in statements:
-                    if statement and not statement.startswith('//'):
-                        session.run(statement)
-            
-            print(f"✓ Network initialized from {cypher_file_path}")
-            return True
-        except Exception as e:
-            print(f"✗ Failed to initialize network: {e}")
-            return False

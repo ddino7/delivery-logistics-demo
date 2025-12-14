@@ -80,5 +80,11 @@ def shipments_page():
     """Page for viewing all shipments"""
     return render_template('shipments_list.html', server_id=app.config['SERVER_ID'])
 
+@app.route('/network')
+def network_page():
+    if not neo4j_service:
+        return "Neo4j not configured. Phase 2 required.", 503
+    return render_template('network.html', server_id=app.config['SERVER_ID'])
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=app.config['DEBUG'])
