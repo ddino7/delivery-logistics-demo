@@ -4,7 +4,7 @@ tracking_bp = Blueprint('tracking', __name__)
 
 @tracking_bp.route('/<tracking_number>', methods=['GET'])
 def track_shipment(tracking_number):
-    """Track shipment by tracking number"""
+    """Track shipment - returns complete shipment data"""
     try:
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
@@ -17,32 +17,23 @@ def track_shipment(tracking_number):
                 'message': 'Shipment not found'
             }), 404
         
-        
+        # Convert ObjectId
         shipment['_id'] = str(shipment['_id'])
         
+        # Add found flag
+        shipment['found'] = True
         
-        tracking_info = {
-            'found': True,
-            'tracking_number': shipment['tracking_number'],
-            'status': shipment['status'],
-            'sender': shipment['sender'],
-            'receiver': shipment['receiver'],
-            'weight': shipment['weight'],
-            'pickup_address': shipment['pickup_address'],
-            'delivery_address': shipment['delivery_address'],
-            'created_at': shipment['created_at'],
-            'updated_at': shipment['updated_at'],
-            'status_history': shipment['status_history']
-        }
-        
-        return jsonify(tracking_info), 200
+        # Return EVERYTHING
+        return jsonify(shipment), 200
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @tracking_bp.route('/search', methods=['GET'])
 def search_shipments():
-    """Search shipments by receiver name or other criteria"""
+    """Search shipments"""
     try:
         receiver_name = request.args.get('receiver_name')
         status = request.args.get('status')
@@ -53,24 +44,18 @@ def search_shipments():
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         
-        
         query = {}
         if receiver_name:
             query['receiver.name'] = {'$regex': receiver_name, '$options': 'i'}
         if status:
             query['status'] = status
         
-        
         shipments = list(collection.find(query).sort('created_at', -1).limit(50))
-        
         
         for shipment in shipments:
             shipment['_id'] = str(shipment['_id'])
         
-        return jsonify({
-            'shipments': shipments,
-            'count': len(shipments)
-        }), 200
+        return jsonify({'shipments': shipments, 'count': len(shipments)}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500

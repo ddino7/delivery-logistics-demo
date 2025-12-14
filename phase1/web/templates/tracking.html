@@ -36,6 +36,16 @@
 
 {% block scripts %}
 <script>
+// Auto-fill tracking number from URL
+window.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const tracking = params.get('tracking');
+    if (tracking) {
+        document.getElementById('tracking_number').value = tracking;
+        document.getElementById('trackingForm').dispatchEvent(new Event('submit'));
+    }
+});
+
 document.getElementById('trackingForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -64,6 +74,64 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                 'DELIVERED': '✅'
             };
             
+            console.log('Shipment data:', data); // Debug
+            
+            // Route HTML
+            let routeHtml = '';
+            if (data.route && data.route.locations) {
+                routeHtml = `
+                    <div class="route-details">
+                        <h3>🗺️ Delivery Route</h3>
+                        <div class="route-path">
+                            <p><strong>Optimization:</strong> ${data.optimize_by || 'time'}</p>
+                            <p><strong>Path:</strong></p>
+                            <ol class="route-list">
+                                ${data.route.locations.map((loc, i) => `
+                                    <li>
+                                        <div class="location-name">
+                                            <strong>${loc.city}</strong> - ${loc.name}
+                                            <span class="location-type">(${loc.type})</span>
+                                        </div>
+                                        ${i < data.route.routes.length ? `
+                                            <div class="route-segment">
+                                                → ${data.route.routes[i].distance} km • 
+                                                ${data.route.routes[i].time.toFixed(1)} hours • 
+                                                ${data.route.routes[i].road_type}
+                                            </div>
+                                        ` : ''}
+                                    </li>
+                                `).join('')}
+                            </ol>
+                        </div>
+                        <div class="route-summary">
+                            <div class="summary-item">
+                                <span class="icon">📏</span>
+                                <div>
+                                    <strong>Total Distance</strong>
+                                    <p>${data.route.total_distance_km} km</p>
+                                </div>
+                            </div>
+                            <div class="summary-item">
+                                <span class="icon">⏱️</span>
+                                <div>
+                                    <strong>Estimated Time</strong>
+                                    <p>${data.route.total_time_hours.toFixed(1)} hours</p>
+                                </div>
+                            </div>
+                            <div class="summary-item">
+                                <span class="icon">💰</span>
+                                <div>
+                                    <strong>Estimated Cost</strong>
+                                    <p>${data.route.total_cost_eur.toFixed(2)} EUR</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                routeHtml = '<div class="warning-box"><p>⚠️ No route information available for this shipment.</p></div>';
+            }
+            
             resultDiv.className = 'tracking-result found';
             resultDiv.innerHTML = `
                 <div class="shipment-header">
@@ -75,6 +143,8 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                     <span class="status-icon">${statusIcons[data.status]}</span>
                     <span class="status-text">${data.status.replace('_', ' ')}</span>
                 </div>
+                
+                ${routeHtml}
                 
                 <div class="shipment-details">
                     <div class="detail-section">
@@ -121,7 +191,8 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                     </div>
                 </div>
             `;
-        } else {
+        } 
+        else {
             resultDiv.className = 'tracking-result not-found';
             resultDiv.innerHTML = `
                 <div class="error-message">
@@ -131,6 +202,9 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                 </div>
             `;
         }
+        console.log('Has route?', !!data.route);
+        console.log('Route data:', data.route);
+        console.log('Has locations?', data.route && data.route.locations);
     } catch (error) {
         resultDiv.className = 'tracking-result error';
         resultDiv.innerHTML = `
