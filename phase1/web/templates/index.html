@@ -5,7 +5,6 @@
 {% block content %}
 <div class="hero">
     <h1>Welcome to Delivery Management System</h1>
-    <p class="subtitle">Phase 1: Core Functionality with MongoDB Replication & Load Balancing</p>
 </div>
 
 <div class="features">
@@ -46,14 +45,42 @@
 </div>
 
 <div class="info-section">
-    <h2>System Architecture - Phase 1</h2>
+    <h2>System Architecture</h2>
     <ul class="architecture-list">
-        <li>✅ <strong>Load Balancing:</strong> Nginx distributes traffic across 3 Flask instances</li>
-        <li>✅ <strong>MongoDB Replica Set:</strong> 1 Primary + 2 Secondary nodes for data redundancy</li>
-        <li>✅ <strong>Scalability:</strong> Horizontal scaling through container replication</li>
-        <li>✅ <strong>Document Model:</strong> Flexible schema for shipments with variable product lists</li>
-    </ul>
-</div>
+    <li>
+        ✅ <strong>Phase 1 – Shipment Management:</strong>
+        Creation of shipments with sender/receiver details, weight, addresses and product lists.
+        Supports shipment status updates (created, in warehouse, in delivery, delivered) and
+        tracking by tracking number. Built on a load-balanced web layer with a document-oriented
+        database using replication for reliable and scalable storage of shipments, suppliers and products.
+    </li>
+
+    <li>
+        ✅ <strong>Phase 2 – Logistics Network:</strong>
+        Visualization of distribution centers and warehouses with optimal route calculation
+        between locations. Introduces a graph database to model logistics infrastructure as nodes
+        and routes as relationships with distance, time and cost attributes, enabling efficient
+        network analysis.
+    </li>
+
+    <li>
+        ✅ <strong>Phase 3 – Real-Time Tracking & Analytics:</strong>
+        Real-time GPS event streaming from delivery vehicles, allowing live vehicle tracking.
+        Advanced shipment search by tracking number, status and recipient.
+        Includes event streaming, centralized logging, indexing and search,
+        and dashboards for key metrics such as shipment status distribution,
+        average delivery time and delays.
+    </li>
+
+    <li>
+        ⚙️ <strong>Phase 4 – Predictive Delivery (Optional):</strong>
+        Estimation of delivery times based on historical shipment data,
+        route distances and real-time GPS information.
+        Integrates batch data processing and a model serving system
+        to support machine learning–based predictions.
+    </li>
+</ul>
+
 {% endblock %}
 
 {% block scripts %}
@@ -61,32 +88,53 @@
 async function checkHealth() {
     const statusBox = document.getElementById('system-status');
     const statusContent = document.getElementById('status-content');
-    
+
     statusBox.style.display = 'block';
-    statusContent.innerHTML = '<p>Checking system health...</p>';
-    
+    statusContent.innerHTML = '<p>Loading system health...</p>';
+
     try {
         const response = await fetch('/health');
         const data = await response.json();
-        
-        const statusClass = data.status === 'healthy' ? 'success' : 'error';
-        
+
         statusContent.innerHTML = `
-            <div class="status-item ${statusClass}">
-                <strong>Status:</strong> ${data.status.toUpperCase()}
-            </div>
-            <div class="status-item">
-                <strong>Server ID:</strong> ${data.server_id}
-            </div>
-            <div class="status-item">
-                <strong>Database:</strong> ${data.database}
-            </div>
-            <div class="status-item">
-                <strong>Timestamp:</strong> ${new Date(data.timestamp * 1000).toLocaleString()}
+            <div class="health-grid">
+                <div class="health-item">
+                    <span class="label">Status</span>
+                    <span class="value">${data.status}</span>
+                </div>
+
+                <div class="health-item">
+                    <span class="label">Server</span>
+                    <span class="value">${data.server_id}</span>
+                </div>
+
+                <div class="health-item">
+                    <span class="label">Phase</span>
+                    <span class="value">${data.phase}</span>
+                </div>
+
+                <div class="health-item">
+                    <span class="label">MongoDB</span>
+                    <span class="value">${data.mongodb}</span>
+                </div>
+
+                <div class="health-item">
+                    <span class="label">Neo4j</span>
+                    <span class="value">${data.neo4j}</span>
+                </div>
+
+                <div class="health-item">
+                    <span class="label">Timestamp</span>
+                    <span class="value">${data.timestamp}</span>
+                </div>
             </div>
         `;
     } catch (error) {
-        statusContent.innerHTML = `<p class="error">Error checking health: ${error.message}</p>`;
+        statusContent.innerHTML = `
+            <div class="health-item error">
+                Failed to fetch system health
+            </div>
+        `;
     }
 }
 </script>
