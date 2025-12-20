@@ -46,6 +46,16 @@ def main():
                     {"$set": event},
                     upsert=True
                 )
+                # Emit structured JSON log for Fluent Bit to collect
+                print(json.dumps({
+                    "service": "location-consumer",
+                    "type": "location_event",
+                    "vehicle_id": vehicle_id,
+                    "lat": event.get("lat"),
+                    "lng": event.get("lng"),
+                    "ts": event.get("ts"),
+                    "updated_at": event.get("updated_at"),
+                }))
 
         except Exception as e:
             print(f"[consumer] error: {e}. retrying in 3s")
