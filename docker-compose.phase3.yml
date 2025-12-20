@@ -1,0 +1,97 @@
+version: "3.8"
+
+services:
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: phase3_redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+    ports:
+      - "9092:9092"
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  opensearch:
+    image: opensearchproject/opensearch:2
+    container_name: phase3_opensearch
+    environment:
+      - discovery.type=single-node
+      - "DISABLE_INSTALL_DEMO_CONFIG=true"
+      - plugins.security.disabled=true
+      - bootstrap.memory_lock=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    networks:
+      - delivery-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  opensearch-dashboards:
+    image: opensearchproject/opensearch-dashboards:2
+    container_name: phase3_opensearch_dashboards
+    environment:
+      - OPENSEARCH_HOSTS=["http://opensearch:9200"]
+      - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
+    ports:
+      - "5601:5601"
+    depends_on:
+      - opensearch
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  fluent-bit:
+    image: cr.fluentbit.io/fluent/fluent-bit:2.2
+    container_name: phase3_fluentbit_v2
+    command: ["/fluent-bit/bin/fluent-bit", "-c", "/tmp/fluent-bit.conf"]
+    volumes:
+      - ${PWD}/phase3/fluent-bit/fluent-bit.conf:/tmp/fluent-bit.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - opensearch
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+  location-consumer:
+    build:
+      context: ${PWD}/phase3/location-consumer
+      dockerfile: Dockerfile
+    container_name: phase3_location_consumer
+    environment:
+      - PYTHONUNBUFFERED=1
+      - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
+      - KAFKA_LOCATION_TOPIC=vehicle-location-events
+      - MONGO_URI=mongodb://phase2_mongo_primary:27017
+      - MONGO_DB_NAME=delivery_system
+    networks:
+      - delivery-network
+    restart: unless-stopped
+
+networks:
+  delivery-network:

@@ -3,6 +3,7 @@ from config import Config
 from services.mongodb_service import MongoDBService
 from routes.shipments import shipments_bp
 from routes.tracking import tracking_bp
+from routes.location import location_bp
 import os
 import time
 
@@ -36,6 +37,7 @@ if os.getenv('NEO4J_URI'):
 # Register blueprints
 app.register_blueprint(shipments_bp, url_prefix='/api/shipments')
 app.register_blueprint(tracking_bp, url_prefix='/api/tracking')
+app.register_blueprint(location_bp, url_prefix='/api/location')
 
 @app.route('/')
 def index():
