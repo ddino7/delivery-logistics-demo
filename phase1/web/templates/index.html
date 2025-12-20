@@ -9,31 +9,37 @@
 
 <div class="features">
     <div class="feature-card">
-        <h2>📦 Create Shipment</h2>
+        <h2>Create Shipment</h2>
         <p>Create new shipments with detailed sender, receiver, and product information.</p>
         <a href="/create" class="btn btn-primary">Create Now</a>
     </div>
 
     <div class="feature-card">
-        <h2>🔍 Track Shipment</h2>
+        <h2>Track Shipment</h2>
         <p>Track your shipment using the tracking number and see real-time status updates.</p>
         <a href="/track" class="btn btn-primary">Track Now</a>
     </div>
 
     <div class="feature-card">
-        <h2>📋 All Shipments</h2>
+        <h2>All Shipments</h2>
         <p>View all created shipments and search by tracking number.</p>
         <a href="/shipments" class="btn btn-primary">View All</a>
     </div>
 
     <div class="feature-card">
-        <h2>🗺️ Test Logistics Network</h2>
+        <h2>Live Map</h2>
+        <p>Open live map view for real-time vehicle locations.</p>
+        <a href="/map" class="btn btn-primary">Live Map</a>
+    </div>
+
+    <div class="feature-card">
+        <h2>Test Logistics Network</h2>
         <p>View distribution centers, warehouses and calculate optimal routes between locations.</p>
         <a href="/network" class="btn btn-primary">View Network</a>
     </div>
 
     <div class="feature-card">
-        <h2>📊 System Status</h2>
+        <h2>System Status</h2>
         <p>Check the system health and database connection status.</p>
         <button class="btn btn-secondary" onclick="checkHealth()">Check Status</button>
     </div>
@@ -48,7 +54,7 @@
     <h2>System Architecture</h2>
     <ul class="architecture-list">
     <li>
-        ✅ <strong>Phase 1 – Shipment Management:</strong>
+        <strong>Phase 1 – Shipment Management:</strong>
         Creation of shipments with sender/receiver details, weight, addresses and product lists.
         Supports shipment status updates (created, in warehouse, in delivery, delivered) and
         tracking by tracking number. Built on a load-balanced web layer with a document-oriented
@@ -56,7 +62,7 @@
     </li>
 
     <li>
-        ✅ <strong>Phase 2 – Logistics Network:</strong>
+        <strong>Phase 2 – Logistics Network:</strong>
         Visualization of distribution centers and warehouses with optimal route calculation
         between locations. Introduces a graph database to model logistics infrastructure as nodes
         and routes as relationships with distance, time and cost attributes, enabling efficient
@@ -64,7 +70,7 @@
     </li>
 
     <li>
-        ✅ <strong>Phase 3 – Real-Time Tracking & Analytics:</strong>
+        <strong>Phase 3 – Real-Time Tracking & Analytics:</strong>
         Real-time GPS event streaming from delivery vehicles, allowing live vehicle tracking.
         Advanced shipment search by tracking number, status and recipient.
         Includes event streaming, centralized logging, indexing and search,
@@ -73,7 +79,7 @@
     </li>
 
     <li>
-        ⚙️ <strong>Phase 4 – Predictive Delivery (Optional):</strong>
+        <strong>Phase 4 – Predictive Delivery (Optional):</strong>
         Estimation of delivery times based on historical shipment data,
         route distances and real-time GPS information.
         Integrates batch data processing and a model serving system
