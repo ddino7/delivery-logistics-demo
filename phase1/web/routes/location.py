@@ -71,7 +71,11 @@ def get_latest_locations():
     """
     try:
         col = current_app.db_service.get_collection("vehicle_latest_locations")
-        docs = list(col.find({}, {"_id": 0}).limit(200))
+        docs = list(
+            col.find({}, {"_id": 0})
+               .sort("updated_at", -1)
+               .limit(200)
+        )
         return jsonify({"ok": True, "count": len(docs), "data": docs})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
