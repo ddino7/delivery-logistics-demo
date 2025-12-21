@@ -32,6 +32,13 @@ try:
 except Exception as e:
     print(f"⚠ OpenSearch integration unavailable: {e}")
 
+# Dashboards URL (can be overridden with env var DASHBOARDS_URL)
+dashboards_url = os.getenv('DASHBOARDS_URL', 'http://localhost:5601/app/home#/')
+
+@app.context_processor
+def inject_dashboards_url():
+    return dict(dashboards_url=dashboards_url)
+
 # Initialize Neo4j service (Phase 2)
 neo4j_service = None
 if os.getenv('NEO4J_URI'):

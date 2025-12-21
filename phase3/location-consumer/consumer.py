@@ -47,15 +47,17 @@ def main():
                     upsert=True
                 )
                 # Emit structured JSON log for Fluent Bit to collect
-                print(json.dumps({
+                log_obj = {
+                    "@timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     "service": "location-consumer",
-                    "type": "location_event",
+                    "level": "INFO",
+                    "event_type": "location_upsert",
                     "vehicle_id": vehicle_id,
                     "lat": event.get("lat"),
                     "lng": event.get("lng"),
-                    "ts": event.get("ts"),
-                    "updated_at": event.get("updated_at"),
-                }))
+                    "message": "location upserted",
+                }
+                print(json.dumps(log_obj))
 
         except Exception as e:
             print(f"[consumer] error: {e}. retrying in 3s")
