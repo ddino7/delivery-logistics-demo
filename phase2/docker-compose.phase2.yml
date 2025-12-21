@@ -31,6 +31,8 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=deliverypass123
       - SERVER_ID=web1
+      - OPENSEARCH_URL=http://phase3_opensearch:9200
+      - REINDEX_SECRET=dev-reindex-secret
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
@@ -56,6 +58,8 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=deliverypass123
       - SERVER_ID=web2
+      - OPENSEARCH_URL=http://phase3_opensearch:9200
+      - REINDEX_SECRET=dev-reindex-secret
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
@@ -81,6 +85,8 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=deliverypass123
       - SERVER_ID=web3
+      - OPENSEARCH_URL=http://phase3_opensearch:9200
+      - REINDEX_SECRET=dev-reindex-secret
       - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
@@ -171,6 +177,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+
+  phase3_opensearch:
+    image: opensearchproject/opensearch:2.9.0
+    container_name: phase2_opensearch
+    environment:
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - plugins.security.disabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    networks:
+      - delivery-network
     restart: unless-stopped
 
 volumes:

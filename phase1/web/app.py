@@ -3,7 +3,11 @@ from config import Config
 from services.mongodb_service import MongoDBService
 from routes.shipments import shipments_bp
 from routes.tracking import tracking_bp
-from routes.location import location_bp
+# `routes.location` depends on kafka; guard import so CLI tools (reindex) can run without kafka installed
+try:
+    from routes.location import location_bp
+except Exception as _:
+    location_bp = None
 import os
 import time
 
@@ -13,6 +17,20 @@ app.config.from_object(Config)
 # Initialize MongoDB service
 db_service = MongoDBService(app.config['MONGO_URI'], app.config['MONGO_DB_NAME'])
 app.db_service = db_service
+
+# Initialize OpenSearch (Phase 3)
+opensearch_url = os.getenv("OPENSEARCH_URL", "http://phase3_opensearch:9200")
+try:
+    from services.opensearch_service import OpenSearchService
+    _os_service = OpenSearchService(opensearch_url)
+    # Always attach the service if URL is provided; initial health may be delayed
+    app.opensearch = _os_service
+    if _os_service.is_available():
+        print("✓ OpenSearch integration enabled (Phase 3)")
+    else:
+        print(f"⚠ OpenSearch at {opensearch_url} appears unavailable right now; will retry on demand")
+except Exception as e:
+    print(f"⚠ OpenSearch integration unavailable: {e}")
 
 # Initialize Neo4j service (Phase 2)
 neo4j_service = None
@@ -37,7 +55,15 @@ if os.getenv('NEO4J_URI'):
 # Register blueprints
 app.register_blueprint(shipments_bp, url_prefix='/api/shipments')
 app.register_blueprint(tracking_bp, url_prefix='/api/tracking')
-app.register_blueprint(location_bp, url_prefix='/api/location')
+if location_bp:
+    app.register_blueprint(location_bp, url_prefix='/api/location')
+# register search blueprint (Phase 3)
+try:
+    from routes.search import search_bp
+
+    app.register_blueprint(search_bp, url_prefix="/api/search")
+except Exception as e:
+    print(f"⚠ Search blueprint not registered: {e}")
 
 @app.route('/')
 def index():
@@ -60,11 +86,19 @@ def health():
         except:
             neo4j_status = 'unhealthy'
     
+    opensearch_status = 'not_configured'
+    try:
+        if hasattr(app, 'opensearch'):
+            opensearch_status = 'healthy' if app.opensearch.is_available() else 'unhealthy'
+    except Exception:
+        opensearch_status = 'unhealthy'
+    
     return jsonify({
         'status': 'healthy' if db_status == 'healthy' else 'unhealthy',
         'server_id': app.config['SERVER_ID'],
         'mongodb': db_status,
         'neo4j': neo4j_status,
+        'opensearch': opensearch_status,
         'phase': 2 if neo4j_service else 1,
         'timestamp': time.time()
     })

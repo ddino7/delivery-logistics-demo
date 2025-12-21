@@ -66,6 +66,20 @@ def create_shipment():
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         result = collection.insert_one(shipment_dict)
+
+        # Index in OpenSearch (if configured) - use shipment dict without Mongo _id
+        try:
+            if hasattr(current_app, "opensearch"):
+                saved_doc = dict(shipment_dict)
+                saved_doc.pop("_id", None)
+                # include string id for completeness (OpenSearchService will prefer tracking_number)
+                saved_doc["id"] = str(result.inserted_id)
+                try:
+                    current_app.opensearch.index_shipment(saved_doc)
+                except Exception as e:
+                    print("OpenSearch index error:", e)
+        except Exception:
+            pass
         
         response = {
             'message': 'Shipment created successfully',
@@ -132,15 +146,43 @@ def update_status(tracking_number):
         
         shipment = Shipment.from_dict(shipment_data)
         shipment.update_status(new_status, note)
-        
+
+        # If delivered, set delivered_at and compute delivery time
+        extra_fields = {}
+        if new_status == 'DELIVERED':
+            delivered_at = datetime.utcnow()
+            extra_fields['delivered_at'] = delivered_at
+            try:
+                created_at = shipment.created_at
+                if isinstance(created_at, datetime):
+                    delivery_sec = int((delivered_at - created_at).total_seconds())
+                    extra_fields['delivery_time_seconds'] = delivery_sec
+            except Exception:
+                pass
+
+        update_payload = {
+            'status': shipment.status,
+            'updated_at': shipment.updated_at,
+            'status_history': shipment.status_history,
+        }
+        update_payload.update(extra_fields)
+
         collection.update_one(
             {'tracking_number': tracking_number},
-            {'$set': {
-                'status': shipment.status,
-                'updated_at': shipment.updated_at,
-                'status_history': shipment.status_history
-            }}
+            {'$set': update_payload}
         )
+
+        # Re-index updated shipment in OpenSearch (if configured)
+        try:
+            if hasattr(current_app, "opensearch"):
+                updated_doc = collection.find_one({'tracking_number': tracking_number}, {'_id': 0})
+                if updated_doc:
+                    try:
+                        current_app.opensearch.index_shipment(updated_doc)
+                    except Exception as e:
+                        print("OpenSearch index error on status update:", e)
+        except Exception:
+            pass
         
         return jsonify({
             'message': 'Status updated successfully',
@@ -152,6 +194,60 @@ def update_status(tracking_number):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@shipments_bp.route("/search", methods=["GET"])
+def search_shipments():
+    """
+    Advanced search by tracking number, status and recipient fields.
+    Query params:
+      - q (free text across multiple fields)
+      - tracking
+      - status
+      - recipient
+    """
+    try:
+        col = current_app.db_service.get_collection("shipments")
+
+        q = (request.args.get("q") or "").strip()
+        tracking = (request.args.get("tracking") or "").strip()
+        status = (request.args.get("status") or "").strip()
+        recipient = (request.args.get("recipient") or "").strip()
+
+        query = {}
+
+        # spec. filteri
+        if tracking:
+            query["tracking_number"] = {"$regex": tracking, "$options": "i"}
+
+        if status:
+            query["status"] = {"$regex": f"^{status}$", "$options": "i"}
+
+        if recipient:
+            query["receiver.name"] = {"$regex": recipient, "$options": "i"}
+
+        # free-text q across important fields
+        if q:
+            query["$or"] = [
+                {"tracking_number": {"$regex": q, "$options": "i"}},
+                {"status": {"$regex": q, "$options": "i"}},
+                {"receiver.name": {"$regex": q, "$options": "i"}},
+                {"delivery_address": {"$regex": q, "$options": "i"}},
+                {"sender.name": {"$regex": q, "$options": "i"}},
+                {"pickup_address": {"$regex": q, "$options": "i"}},
+            ]
+
+        docs = list(col.find(query, {"_id": 0}).limit(200))
+        return jsonify({"ok": True, "count": len(docs), "data": docs}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@shipments_bp.route("/reindex", methods=["POST"])
+def reindex_shipments():
+    # Reindexing via HTTP endpoint is unsafe for production and has been disabled.
+    # Use the CLI script at `scripts/reindex_shipments.py` instead.
+    return jsonify({"ok": False, "error": "Reindex endpoint disabled. Use scripts/reindex_shipments.py."}), 404
 
 @shipments_bp.route('/', methods=['GET'])
 def list_shipments():
@@ -209,7 +305,22 @@ def update_shipment(tracking_number):
             {'tracking_number': tracking_number},
             {'$set': update_data}
         )
-        
+
+        # Re-fetch - doc - re-index u OpenSearch-u
+        try:
+            if hasattr(current_app, "opensearch"):
+                updated_doc = collection.find_one({'tracking_number': tracking_number}, {'_id': 0})
+                if updated_doc:
+                    # da budemo isg da postoji id
+                    if 'id' not in updated_doc:
+                        pass
+                    try:
+                        current_app.opensearch.index_shipment(updated_doc)
+                    except Exception as e:
+                        print("OpenSearch index error:", e)
+        except Exception:
+            pass
+
         return jsonify({
             'message': 'Shipment updated successfully',
             'tracking_number': tracking_number
