@@ -27,44 +27,17 @@ services:
       - delivery-network
     restart: unless-stopped
 
-  opensearch:
-    image: opensearchproject/opensearch:2.9.0
-    container_name: phase3_opensearch
-    environment:
-      - discovery.type=single-node
-      - "DISABLE_INSTALL_DEMO_CONFIG=true"
-      - plugins.security.disabled=true
-      - bootstrap.memory_lock=true
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    ports:
-      - "9200:9200"
-    networks:
-      delivery-network:
-        aliases:
-          - opensearch
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.9.0
     container_name: phase3_opensearch_dashboards
     environment:
-      - OPENSEARCH_HOSTS=http://phase2_opensearch:9200
+      # Use Phase 2 OpenSearch (single source of truth)
+      - OPENSEARCH_HOSTS=["http://phase2_opensearch:9200"]
+      # Fix i18n crash you hit
       - I18N_LOCALE=en-US
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     ports:
       - "5601:5601"
-    # Do not start a second OpenSearch instance from this compose file; use phase2_opensearch
-    #depends_on:
-    #  - opensearch
     networks:
       - delivery-network
     restart: unless-stopped
@@ -80,8 +53,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - ${PWD}/phase3/fluent-bit/test-logs:/tmp/test-logs:ro
-    depends_on:
-      - opensearch
     networks:
       - delivery-network
     restart: unless-stopped
