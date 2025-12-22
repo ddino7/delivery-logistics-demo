@@ -3,6 +3,7 @@ from config import Config
 from services.mongodb_service import MongoDBService
 from routes.shipments import shipments_bp
 from routes.tracking import tracking_bp
+from services.eta_service import EtaService
 # `routes.location` depends on kafka; guard import so CLI tools (reindex) can run without kafka installed
 try:
     from routes.location import location_bp
@@ -17,6 +18,18 @@ app.config.from_object(Config)
 # Initialize MongoDB service
 db_service = MongoDBService(app.config['MONGO_URI'], app.config['MONGO_DB_NAME'])
 app.db_service = db_service
+
+# Initialize ETA predictor (Phase 4 - optional)
+eta_model_path = os.getenv("ETA_MODEL_PATH", "/app/phase4/model.joblib")
+eta_stats_path = os.getenv("ETA_STATS_PATH", "/app/phase4/model.json")
+try:
+    app.eta_service = EtaService(model_path=eta_model_path, stats_path=eta_stats_path)
+    if app.eta_service.has_model:
+        print("✓ ETA model loaded (Phase 4)")
+    else:
+        print("ℹ Using heuristic ETA (Phase 4)")
+except Exception as e:
+    print(f"⚠ ETA service unavailable: {e}")
 
 # Initialize OpenSearch (Phase 3)
 opensearch_url = os.getenv("OPENSEARCH_URL", "http://phase3_opensearch:9200")
@@ -99,6 +112,13 @@ def health():
             opensearch_status = 'healthy' if app.opensearch.is_available() else 'unhealthy'
     except Exception:
         opensearch_status = 'unhealthy'
+
+    eta_status = 'not_configured'
+    try:
+        if hasattr(app, 'eta_service'):
+            eta_status = 'model' if app.eta_service.has_model else 'heuristic'
+    except Exception:
+        eta_status = 'unhealthy'
     
     return jsonify({
         'status': 'healthy' if db_status == 'healthy' else 'unhealthy',
@@ -106,6 +126,7 @@ def health():
         'mongodb': db_status,
         'neo4j': neo4j_status,
         'opensearch': opensearch_status,
+        'eta': eta_status,
         'phase': 2 if neo4j_service else 1,
         'timestamp': time.time()
     })
