@@ -8,3 +8,8 @@ Autori: Tin Barbarić, Dino Drčec
 3. faza: Vozači šalju lokacijske događaje u realnom vremenu, koji omogućuju praćenje vozila na karti. Omogućeno je napredno pretraživanje pošiljki po svim poljima. Dodani su sustav za strujanje podataka, sustav za pretraživanje, sustav za prikupljanje logova, sustav za vizualizaciju.
 
 4. faza (APVO – neobavezno): Predviđanje vremena dostave na temelju povijesnih podataka o pošiljkama, prometa i vremenskih uvjeta. Automatska optimizacija ruta radi smanjenja trajanja i troškova. Dodani su alati za implementaciju modela i automatizaciju.
+
+Compose build-ovi:
+
+docker compose -f phase2/docker-compose.phase2.yml up -d --build
+docker compose -f docker-compose.phase3.yml up -d --build

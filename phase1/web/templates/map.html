@@ -62,15 +62,26 @@
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
+    // cache-bust ikone (da browser ne drži staru/404)
+    const iconUrl = '../static/icons/truck.png?v=' + Date.now();
+
+    const vehicleIcon = L.icon({
+      iconUrl,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+      popupAnchor: [0, -18]
+    });
+
     // vehicle_id -> marker
     const markers = new Map();
 
     async function fetchLatest() {
-      // RELATIVNO: ide preko NGINX-a (port 80), bez :5000
       const res = await fetch('/api/location/latest', { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const payload = await res.json();
-      return payload;
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error('HTTP ' + res.status + ' ' + text);
+      }
+      return res.json();
     }
 
     function upsertMarker(v) {
@@ -92,7 +103,11 @@
         marker.setLatLng([lat, lng]);
         marker.setPopupContent(popupHtml);
       } else {
-        const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupHtml);
+        //  OVO JE KLJUČ: primijeni custom icon
+        const marker = L.marker([lat, lng], { icon: vehicleIcon })
+          .addTo(map)
+          .bindPopup(popupHtml);
+
         markers.set(vehicleId, marker);
       }
     }
@@ -101,9 +116,9 @@
       try {
         const payload = await fetchLatest();
         const data = payload.data || [];
+
         document.getElementById('count').textContent = data.length;
 
-        // update / insert
         for (const v of data) upsertMarker(v);
 
       } catch (e) {
@@ -111,7 +126,14 @@
       }
     }
 
-    // start
+    // Debug: provjeri da se ikona uopće učitava (ako ovo faila -> putanja / permissions / nginx static)
+    (function testIconLoad() {
+      const img = new Image();
+      img.onload = () => console.log('vehicle icon loaded:', iconUrl);
+      img.onerror = () => console.error('vehicle icon NOT loaded:', iconUrl, 'Provjeri da postoji phase1/web/static/icons/truck.png');
+      img.src = iconUrl;
+    })();
+
     tick();
     setInterval(tick, 2000);
   </script>
