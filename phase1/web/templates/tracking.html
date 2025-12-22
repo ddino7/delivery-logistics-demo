@@ -78,18 +78,10 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
             
             // Route HTML
             let routeHtml = '';
-            const etaBadge = data.predicted_delivery_hours ? `
-                <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:inline-block;">
-                    <p style="margin:0;font-weight:bold;color:#2e7d32;">AI ETA (${data.prediction_source || 'heuristic'}):</p>
-                    <p style="margin:0;font-size:1.1em;color:#1b5e20;">${data.predicted_delivery_hours.toFixed(2)} hours</p>
-                </div>
-            ` : '';
-
             if (data.route && data.route.locations) {
                 routeHtml = `
                     <div class="route-details">
                         <h3>🗺️ Delivery Route</h3>
-                        ${etaBadge}
                         <div class="route-path">
                             <p><strong>Optimization:</strong> ${data.optimize_by || 'time'}</p>
                             <p><strong>Path:</strong></p>

@@ -154,9 +154,6 @@ function displayShipments(shipments) {
                 <p><strong>From:</strong> ${s.sender.name} (${s.pickup_address})</p>
                 <p><strong>To:</strong> ${s.receiver.name} (${s.delivery_address})</p>
                 <p><strong>Weight:</strong> ${s.weight} kg | <strong>Products:</strong> ${s.products ? s.products.length : 0}</p>
-                ${s.predicted_delivery_hours ? `
-                    <p style="margin:6px 0;"><strong>AI ETA:</strong> ${s.predicted_delivery_hours.toFixed(2)} h <span style="margin-left:6px;padding:2px 6px;background:#e8f5e9;border-radius:4px;border:1px solid #c8e6c9;font-size:0.85em;color:#2e7d32;">${s.prediction_source || 'heuristic'}</span></p>
-                ` : ''}
                 ${s.route ? `
                     <div class="route-info">
                         <p><strong>🗺️ Route:</strong> ${s.route.locations.map(l => l.city).join(' → ')}</p>
