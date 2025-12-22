@@ -37,7 +37,6 @@ services:
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
-      - ../phase4:/app/phase4:ro
     networks:
       - delivery-network
     depends_on:
@@ -65,7 +64,6 @@ services:
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
-      - ../phase4:/app/phase4:ro
     networks:
       - delivery-network
     depends_on:
@@ -93,7 +91,6 @@ services:
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
-      - ../phase4:/app/phase4:ro
     networks:
       - delivery-network
     depends_on:
@@ -172,7 +169,7 @@ services:
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
-      - ./neo4j/import:/var/lib/neo4j/import
+      - ./neo4j/import:/var/lib/neo4j/import:ro
     networks:
       - delivery-network
     healthcheck:
