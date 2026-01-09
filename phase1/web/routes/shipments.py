@@ -62,6 +62,17 @@ def create_shipment():
             shipment_dict['estimated_delivery_hours'] = route_info['total_time_hours']
             shipment_dict['estimated_cost_eur'] = route_info['total_cost_eur']
             shipment_dict['optimize_by'] = data.get('optimize_by', 'time')
+
+        # PHASE 4 OPTIONAL: Predict delivery time (model or heuristic)
+        if route_info and hasattr(current_app, "eta_service"):
+            try:
+                eta_hours, eta_source = current_app.eta_service.predict(shipment_dict, route_info)
+                shipment_dict["predicted_delivery_hours"] = eta_hours
+                shipment_dict["prediction_source"] = eta_source
+                route_info["predicted_delivery_hours"] = eta_hours
+                print(f"ℹ ETA ({eta_source}): {eta_hours:.2f} hours")
+            except Exception as e:
+                print(f"⚠ ETA prediction error: {e}")
         
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
@@ -86,6 +97,10 @@ def create_shipment():
             'tracking_number': shipment.tracking_number,
             'id': str(result.inserted_id)
         }
+
+        if "predicted_delivery_hours" in shipment_dict:
+            response["predicted_delivery_hours"] = shipment_dict["predicted_delivery_hours"]
+            response["prediction_source"] = shipment_dict.get("prediction_source", "heuristic")
         
         # Include route in response
         if route_info:

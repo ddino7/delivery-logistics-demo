@@ -37,6 +37,7 @@ services:
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
+      - ../phase4:/app/phase4:ro
     networks:
       - delivery-network
     depends_on:
@@ -64,6 +65,7 @@ services:
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
+      - ../phase4:/app/phase4:ro
     networks:
       - delivery-network
     depends_on:
@@ -91,6 +93,7 @@ services:
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
+      - ../phase4:/app/phase4:ro
     networks:
       - delivery-network
     depends_on:
