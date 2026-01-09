@@ -169,7 +169,7 @@ services:
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
-      - ./neo4j/import:/var/lib/neo4j/import:ro
+      - ./neo4j/import:/var/lib/neo4j/import
     networks:
       - delivery-network
     healthcheck:
@@ -178,6 +178,39 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+
+  neo4j-init:
+    image: neo4j:5.15-community
+    container_name: phase2_neo4j_init
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    volumes:
+      - neo4j-data:/data
+      - ./neo4j/import:/var/lib/neo4j/import:ro
+    networks:
+      - delivery-network
+    entrypoint: ["/bin/bash"]
+    command:
+      - "-lc"
+      - |
+        set -e
+        if [ -f /data/.network_seeded ]; then
+          echo "Neo4j seed already applied."
+          exit 0
+        fi
+        echo "Seeding Neo4j network..."
+        for i in {1..30}; do
+          if /var/lib/neo4j/bin/cypher-shell -u neo4j -p deliverypass123 -a bolt://neo4j:7687 -f /var/lib/neo4j/import/init-network.cypher; then
+            touch /data/.network_seeded
+            echo "Seed complete."
+            exit 0
+          fi
+          echo "Waiting for Neo4j..."
+          sleep 2
+        done
+        echo "Seed failed."
+        exit 1
 
   phase3_opensearch:
     image: opensearchproject/opensearch:2.9.0
