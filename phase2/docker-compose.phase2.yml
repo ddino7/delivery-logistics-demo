@@ -172,7 +172,7 @@ services:
     volumes:
       - neo4j-data:/data
       - neo4j-logs:/logs
-      - ./neo4j/import:/var/lib/neo4j/import:ro
+      - ./neo4j/import:/var/lib/neo4j/import
     networks:
       - delivery-network
     healthcheck:
