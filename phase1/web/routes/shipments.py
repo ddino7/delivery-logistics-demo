@@ -140,7 +140,7 @@ def get_shipment(tracking_number):
 
 @shipments_bp.route('/<tracking_number>/status', methods=['PUT'])
 def update_status(tracking_number):
-    """Update shipment status"""
+    """Update shipment status with automatic vehicle simulation control"""
     try:
         data = request.get_json()
         new_status = data.get('status')
@@ -158,6 +158,8 @@ def update_status(tracking_number):
         shipment_data = collection.find_one({'tracking_number': tracking_number})
         if not shipment_data:
             return jsonify({'error': 'Shipment not found'}), 404
+        
+        old_status = shipment_data.get('status')
         
         shipment = Shipment.from_dict(shipment_data)
         shipment.update_status(new_status, note)
@@ -187,6 +189,36 @@ def update_status(tracking_number):
             {'$set': update_payload}
         )
 
+        # PHASE 3: Vehicle Simulation Control
+        if hasattr(current_app, 'vehicle_simulator') and current_app.vehicle_simulator:
+            try:
+                # Start simulation when shipment goes IN_TRANSIT
+                if new_status == 'IN_TRANSIT' and old_status != 'IN_TRANSIT':
+                    # Check if shipment has a route
+                    if shipment_data.get('route'):
+                        driver_id = data.get('driver_id')  # Optional driver ID from request
+                        success = current_app.vehicle_simulator.start_simulation(
+                            tracking_number, 
+                            driver_id
+                        )
+                        if success:
+                            print(f"🚚 Started vehicle simulation for {tracking_number}")
+                        else:
+                            print(f"⚠️ Could not start simulation for {tracking_number}")
+                    else:
+                        print(f"⚠️ Cannot simulate {tracking_number} - no route available")
+                
+                # Stop simulation when delivered
+                elif new_status == 'DELIVERED':
+                    success = current_app.vehicle_simulator.stop_simulation(tracking_number)
+                    if success:
+                        print(f"✅ Stopped vehicle simulation for {tracking_number} (DELIVERED)")
+                    
+            except Exception as e:
+                print(f"⚠️ Vehicle simulation error for {tracking_number}: {e}")
+                import traceback
+                traceback.print_exc()
+
         # Re-index updated shipment in OpenSearch (if configured)
         try:
             if hasattr(current_app, "opensearch"):
@@ -202,7 +234,8 @@ def update_status(tracking_number):
         return jsonify({
             'message': 'Status updated successfully',
             'tracking_number': tracking_number,
-            'new_status': new_status
+            'new_status': new_status,
+            'simulation': 'started' if new_status == 'IN_TRANSIT' else ('stopped' if new_status == 'DELIVERED' else 'unchanged')
         }), 200
         
     except ValueError as e:
@@ -353,8 +386,25 @@ def delete_shipment(tracking_number):
         
         result = collection.delete_one({'tracking_number': tracking_number})
         
+        # Stop simulation if running
+        if hasattr(current_app, 'vehicle_simulator') and current_app.vehicle_simulator:
+            try:
+                current_app.vehicle_simulator.stop_simulation(tracking_number)
+            except Exception:
+                pass
+        
         if result.deleted_count == 0:
             return jsonify({'error': 'Shipment not found'}), 404
+        
+        if result.deleted_count == 0:
+            return jsonify({'error': 'Shipment not found'}), 404
+        
+        # Stop simulation if running
+        if hasattr(current_app, 'vehicle_simulator') and current_app.vehicle_simulator:
+            try:
+                current_app.vehicle_simulator.stop_simulation(tracking_number)
+            except Exception:
+                pass
         
         return jsonify({
             'message': 'Shipment deleted successfully',

@@ -100,22 +100,18 @@ class Neo4jService:
         """
         Find optimal route between two cities based on optimization parameter.
         Searches for both direct and multi-hop routes (up to 3 intermediate cities).
-        
+    
         Args:
             from_city (str): Origin city
             to_city (str): Destination city
             optimize_by (str): Optimization parameter - 'distance', 'time', or 'cost'
-        
+    
         Returns:
             dict: Route information with locations, routes, and totals
         """
         if not self.driver:
             return None
-        
-        # Upit koji pronalazi sve moguće puteve (direktne i multi-hop)
-        # Ograničavamo na maksimalno 3 "skoka" da ne dođe do prevelikog broja kombinacija
-        
-        # Moramo koristiti različite upite jer Neo4j CASE statement ne podržava parametre dobro
+
         if optimize_by == 'distance':
             order_clause = "ORDER BY totalDistance ASC"
         elif optimize_by == 'time':
@@ -124,46 +120,46 @@ class Neo4jService:
             order_clause = "ORDER BY totalCost ASC"
         else:
             order_clause = "ORDER BY totalDistance ASC"
-        
+    
         query = f"""
         MATCH (start), (end)
         WHERE (start:DistributionCenter OR start:Warehouse) AND start.city = $from_city
-          AND (end:DistributionCenter OR end:Warehouse) AND end.city = $to_city
-        
+            AND (end:DistributionCenter OR end:Warehouse) AND end.city = $to_city
+    
         // Pronađi sve puteve između start i end (do maksimalno 3 međustanice)
         MATCH path = (start)-[:ROUTE*1..4]->(end)
-        
+    
         // Filtriranje: ne želimo da se isti grad ponavlja u ruti (ciklusi)
         WHERE ALL(n IN nodes(path)[1..-1] WHERE single(m IN nodes(path) WHERE m = n))
-        
+    
         WITH path,
-             relationships(path) as rels,
-             nodes(path) as nodes
-        
+            relationships(path) as rels,
+            nodes(path) as nodes
+    
         // Izračunaj ukupne metrike za svaki path
         WITH nodes, rels,
-             reduce(dist = 0, r in rels | dist + r.distance_km) as totalDistance,
-             reduce(time = 0, r in rels | time + r.avg_time_hours) as totalTime,
-             reduce(cost = 0, r in rels | cost + (r.distance_km * r.cost_per_km)) as totalCost
-        
+            reduce(dist = 0, r in rels | dist + r.distance_km) as totalDistance,
+            reduce(time = 0, r in rels | time + r.avg_time_hours) as totalTime,
+            reduce(cost = 0, r in rels | cost + (r.distance_km * r.cost_per_km)) as totalCost
+    
         // Sortiraj prema odabranom parametru optimizacije
         {order_clause}
         LIMIT 1
-        
+    
         RETURN 
-            [n in nodes | {{id: n.id, name: n.name, city: n.city, type: labels(n)[0]}}] as locations,
+            [n in nodes | {{id: n.id, name: n.name, city: n.city, type: labels(n)[0], lat: n.lat, lng: n.lon}}] as locations,
             [r in rels | {{distance: r.distance_km, time: r.avg_time_hours, road_type: r.road_type, cost_per_km: r.cost_per_km}}] as routes,
             totalDistance as total_distance,
             totalTime as total_time,
             totalCost as total_cost
         """
-        
+    
         with self.driver.session() as session:
             result = session.run(query, from_city=from_city, to_city=to_city)
             record = result.single()
             if not record:
                 return None
-            
+        
             return {
                 'locations': record['locations'],
                 'routes': record['routes'],

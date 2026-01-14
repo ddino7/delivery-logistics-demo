@@ -33,7 +33,7 @@ services:
       - SERVER_ID=web1
       - OPENSEARCH_URL=http://phase3_opensearch:9200
       - REINDEX_SECRET=dev-reindex-secret
-      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
@@ -61,7 +61,7 @@ services:
       - SERVER_ID=web2
       - OPENSEARCH_URL=http://phase3_opensearch:9200
       - REINDEX_SECRET=dev-reindex-secret
-      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app
@@ -89,7 +89,7 @@ services:
       - SERVER_ID=web3
       - OPENSEARCH_URL=http://phase3_opensearch:9200
       - REINDEX_SECRET=dev-reindex-secret
-      - KAFKA_BOOTSTRAP_SERVERS=redpanda:9092
+      - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
     volumes:
       - ../phase1/web:/app

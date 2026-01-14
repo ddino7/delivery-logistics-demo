@@ -64,18 +64,30 @@ def ingest_location_event():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-@location_bp.route("/latest", methods=["GET"])
+@location_bp.route('/latest', methods=['GET'])
 def get_latest_locations():
-    """
-    Frontend polling endpoint -> reads latest locations from Mongo.
-    """
+    """Get latest location for all active vehicles"""
     try:
-        col = current_app.db_service.get_collection("vehicle_latest_locations")
-        docs = list(
-            col.find({}, {"_id": 0})
-               .sort("updated_at", -1)
-               .limit(200)
-        )
-        return jsonify({"ok": True, "count": len(docs), "data": docs})
+        db = current_app.db_service
+        col = db.get_collection('vehicle_latest_locations')
+        
+        # Optional: filter out stale locations (older than 5 minutes)
+        cutoff_time = time.time() - 300  # 5 minutes
+        
+        vehicles = list(col.find({
+            'updated_at': {'$gt': cutoff_time}
+        }))
+        
+        # Remove MongoDB _id
+        for v in vehicles:
+            v.pop('_id', None)
+        
+        return jsonify({
+            'ok': True,
+            'data': vehicles,
+            'count': len(vehicles),
+            'cutoff_time': cutoff_time
+        }), 200
+        
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500

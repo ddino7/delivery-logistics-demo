@@ -9,6 +9,12 @@ try:
     from routes.location import location_bp
 except Exception as _:
     location_bp = None
+# Import simulator blueprint
+try:
+    from routes.simulator import simulator_bp
+except Exception as e:
+    simulator_bp = None
+    print(f"⚠ Simulator blueprint not available: {e}")
 import os
 import time
 
@@ -45,6 +51,27 @@ try:
 except Exception as e:
     print(f"⚠ OpenSearch integration unavailable: {e}")
 
+# Initialize Vehicle Simulator (Phase 3)
+vehicle_simulator = None
+try:
+    from kafka import KafkaProducer
+    from services.vehicle_simulator import VehicleSimulator
+    
+    kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "redpanda:9092")
+    kafka_producer = KafkaProducer(
+        bootstrap_servers=kafka_bootstrap.split(","),
+        acks=1,
+        retries=3
+    )
+    
+    # Time scale: 1 = real-time, 100 = 100x faster (default), 1000 = 1000x faster
+    time_scale = int(os.getenv("VEHICLE_TIME_SCALE", "100"))
+    vehicle_simulator = VehicleSimulator(kafka_producer, db_service, time_scale=time_scale)
+    app.vehicle_simulator = vehicle_simulator
+    print(f"✓ Vehicle Simulator initialized (Phase 3, time_scale={time_scale}x)")
+except Exception as e:
+    print(f"⚠ Vehicle Simulator unavailable: {e}")
+
 # Dashboards URL (can be overridden with env var DASHBOARDS_URL)
 dashboards_url = os.getenv('DASHBOARDS_URL', 'http://localhost:5601/app/home#/')
 
@@ -77,6 +104,8 @@ app.register_blueprint(shipments_bp, url_prefix='/api/shipments')
 app.register_blueprint(tracking_bp, url_prefix='/api/tracking')
 if location_bp:
     app.register_blueprint(location_bp, url_prefix='/api/location')
+if simulator_bp:
+    app.register_blueprint(simulator_bp, url_prefix='/api/simulator')
 # register search blueprint (Phase 3)
 try:
     from routes.search import search_bp
@@ -120,6 +149,14 @@ def health():
     except Exception:
         eta_status = 'unhealthy'
     
+    simulator_status = 'not_configured'
+    try:
+        if hasattr(app, 'vehicle_simulator') and app.vehicle_simulator:
+            active = app.vehicle_simulator.get_active_simulations()
+            simulator_status = f'active ({len(active)} simulations)'
+    except Exception:
+        simulator_status = 'unhealthy'
+    
     return jsonify({
         'status': 'healthy' if db_status == 'healthy' else 'unhealthy',
         'server_id': app.config['SERVER_ID'],
@@ -127,6 +164,7 @@ def health():
         'neo4j': neo4j_status,
         'opensearch': opensearch_status,
         'eta': eta_status,
+        'vehicle_simulator': simulator_status,
         'phase': 2 if neo4j_service else 1,
         'timestamp': time.time()
     })

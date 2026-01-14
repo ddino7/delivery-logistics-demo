@@ -17,4 +17,4 @@ class Config:
     
     TRACKING_NUMBER_PREFIX = 'DLV'
     TRACKING_NUMBER_LENGTH = 12
-    REINDEX_SECRET = os.environ.get('REINDEX_SECRET')  # set to protect /api/shipments/reindex
+    REINDEX_SECRET = os.environ.get('REINDEX_SECRET')
