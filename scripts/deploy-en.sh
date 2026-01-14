@@ -6,7 +6,7 @@ set -e
 #  🚀 Delivery Logistics - Deployment Script
 # ===================================================
 
-# Boje za output
+# Output colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -21,86 +21,86 @@ error() { echo -e "${RED}✗ $1${NC}"; }
 header() { echo -e "\n${BOLD}${BLUE}=== $1 ===${NC}\n"; }
 
 # ===================================================
-#  🔧 Inicijalizacija i provjera preduvjeta
+#  🔧 Initialization and Pre-Checks
 # ===================================================
 
-header "Dobrodošao u Deployment Script za Delivery Logistics!"
-echo "Ova skripta će pokrenuti sve potrebne servise za faze 1, 2 i 3 projekta."
-echo "Molimo pratite upute i čekajte potvrde za svaki korak."
+header "Welcome to the Delivery Logistics Deployment Script!"
+echo "This script will start all required services for project phases 1, 2, and 3."
+echo "Please follow the instructions and wait for confirmation at each step."
 echo ""
 
-# Provjera Docker i Docker Compose
-header "Provjera preduvjeta"
+# Check Docker and Docker Compose
+header "Checking Prerequisites"
 
 if ! command -v docker &> /dev/null; then
-    error "Docker nije instaliran! Molimo instalirajte Docker prije pokretanja skripte."
+    error "Docker is not installed! Please install Docker before running this script."
     exit 1
 fi
 
 if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    error "Docker Compose nije instaliran! Molimo instalirajte Docker Compose prije pokretanja skripte."
+    error "Docker Compose is not installed! Please install Docker Compose before running this script."
     exit 1
 fi
 
-# Odaberi docker-compose ili docker compose
+# Choose docker-compose or docker compose
 if command -v docker-compose &> /dev/null; then
     DOCKER_COMPOSE="docker-compose"
 else
     DOCKER_COMPOSE="docker compose"
 fi
 
-info "Korištena verzija: $($DOCKER_COMPOSE version | head -n1)"
+info "Using version: $($DOCKER_COMPOSE version | head -n1)"
 
-# Idi u root direktorij projekta
+# Go to project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-cd "$PROJECT_ROOT" || { error "Ne mogu pronaći root direktorij projekta!"; exit 1; }
+cd "$PROJECT_ROOT" || { error "Could not find the project root directory!"; exit 1; }
 
-info "Radni direktorij: $PROJECT_ROOT"
+info "Working directory: $PROJECT_ROOT"
 
 # ===================================================
-#  🧹 Opcionalni potpuni cleanup
+#  🧹 Optional Full Cleanup
 # ===================================================
 
-header "Opcionalni cleanup prije deploya"
+header "Optional Cleanup Before Deployment"
 
-echo "Želite li izvršiti potpuni cleanup prije deploya?"
-echo "Ovo će obrisati sve kontejnere, mreže i volume-e (svi podaci će biti izgubljeni!)."
-echo -n "Preporučeno ako imate problema sa mrežama ili želite fresh start. (Y/n): "
+echo "Do you want to perform a full cleanup before deployment?"
+echo "This will remove all containers, networks, and volumes (all data will be lost!)."
+echo -n "Recommended if you have network issues or want a fresh start. (Y/n): "
 read -r do_cleanup
 
 if [[ ! "$do_cleanup" =~ ^[Nn]$ ]]; then
-    warning "Počinjem s potpunim cleanupom..."
+    warning "Starting full cleanup..."
 
-    info "Zaustavljam sve postojeće servise..."
+    info "Stopping all existing services..."
     cd phase1 2>/dev/null && $DOCKER_COMPOSE down -v 2>/dev/null || true
     cd "$PROJECT_ROOT"
     cd phase2 2>/dev/null && $DOCKER_COMPOSE -f docker-compose.phase2.yml down -v 2>/dev/null || true
     cd "$PROJECT_ROOT"
     $DOCKER_COMPOSE -f docker-compose.phase3.yml down -v 2>/dev/null || true
 
-    info "Brišem sve kontejnere..."
+    info "Removing all containers..."
     docker rm -f $(docker ps -a -q --filter "name=phase1_" --filter "name=phase2_" --filter "name=phase3_") 2>/dev/null || true
 
-    info "Brišem mreže..."
+    info "Removing networks..."
     docker network rm phase2_delivery-network 2>/dev/null || true
     docker network rm phase1_delivery-network 2>/dev/null || true
     docker network rm phase3_delivery-network 2>/dev/null || true
 
-    warning "Brišem volume-e (PAŽNJA: Gubi se svi podaci!)..."
+    warning "Removing volumes (WARNING: All data will be lost!)..."
     docker volume rm $(docker volume ls -q --filter "name=phase1_" --filter "name=phase2_" --filter "name=phase3_") 2>/dev/null || true
 
-    success "Potpuni cleanup je uspješno završen!"
+    success "Full cleanup completed successfully!"
     sleep 2
 fi
 
 # ===================================================
-#  🛑 Zaustavljanje postojećih servisa
+#  🛑 Stopping Existing Services
 # ===================================================
 
-header "Zaustavljanje postojećih servisa"
+header "Stopping Existing Services"
 
-info "Zaustavljam sve postojeće kontejnere..."
+info "Stopping all existing containers..."
 cd phase1 2>/dev/null && $DOCKER_COMPOSE down -v 2>/dev/null || true
 cd "$PROJECT_ROOT"
 cd phase2 2>/dev/null && $DOCKER_COMPOSE -f docker-compose.phase2.yml down -v 2>/dev/null || true
@@ -114,28 +114,28 @@ docker rm -f phase1_nginx phase1_web1 phase1_web2 phase1_web3 \
              phase2_mongo_primary phase2_mongo_secondary1 phase2_mongo_secondary2 \
              phase2_neo4j phase3_* 2>/dev/null || true
 
-success "Svi postojeći kontejneri su zaustavljeni."
+success "All existing containers have been stopped."
 
 # ===================================================
-#  🐘 Pokretanje MongoDB servisa
+#  🐘 Starting MongoDB Services
 # ===================================================
 
-header "Pokretanje MongoDB servisa"
+header "Starting MongoDB Services"
 
-info "Pokrećem MongoDB primarni i sekundarni čvorove..."
+info "Starting MongoDB primary and secondary nodes..."
 cd "$PROJECT_ROOT/phase2"
 $DOCKER_COMPOSE -f docker-compose.phase2.yml up -d mongo-primary mongo-secondary1 mongo-secondary2
 
-info "Čekam 15 sekundi da se MongoDB servisi stabiliziraju..."
+info "Waiting 15 seconds for MongoDB services to stabilize..."
 sleep 15
 
 # ===================================================
-#  🔄 Inicijalizacija MongoDB replica set
+#  🔄 Initializing MongoDB Replica Set
 # ===================================================
 
-header "Inicijalizacija MongoDB replica set"
+header "Initializing MongoDB Replica Set"
 
-info "Inicijaliziram MongoDB replica set..."
+info "Initializing MongoDB replica set..."
 docker exec phase2_mongo_primary mongosh --eval '
 rs.initiate({
   _id: "rs0",
@@ -145,101 +145,100 @@ rs.initiate({
     { _id: 2, host: "mongo-secondary2:27017", priority: 1 }
   ]
 });
-' || { warning "Došlo je do greške prilikom inicijalizacije replica seta. Nastavljam..."; }
+' || { warning "An error occurred while initializing the replica set. Continuing..."; }
 
 sleep 10
 
-info "Provjeravam status MongoDB replica seta..."
+info "Checking MongoDB replica set status..."
 docker exec phase2_mongo_primary mongosh --eval 'rs.status().members.forEach(m => print(m.name + " -> " + m.stateStr));' || true
 
-success "MongoDB replica set je uspješno inicijaliziran!"
+success "MongoDB replica set has been successfully initialized!"
 
 # ===================================================
-#  🔗 Pokretanje Neo4j servisa
+#  🔗 Starting Neo4j Services
 # ===================================================
 
-header "Pokretanje Neo4j servisa"
+header "Starting Neo4j Services"
 
-info "Pokrećem Neo4j..."
+info "Starting Neo4j..."
 $DOCKER_COMPOSE -f docker-compose.phase2.yml up -d neo4j
 
-info "Čekam 20 sekundi da se Neo4j pokrene..."
+info "Waiting 20 seconds for Neo4j to start..."
 sleep 20
 
-info "Inicijaliziram Neo4j mrežu..."
+info "Initializing Neo4j network..."
 sudo chown -R $USER:$USER "$PROJECT_ROOT/phase2/neo4j/" 2>/dev/null || true
 docker exec -i phase2_neo4j cypher-shell -u neo4j -p deliverypass123 < "$PROJECT_ROOT/phase2/neo4j/import/init-network.cypher"
 
-success "Neo4j mreža je uspješno inicijalizirana!"
+success "Neo4j network has been successfully initialized!"
 
 # ===================================================
-#  🚀 Pokretanje Phase 3 servisa (Kafka, GPS, ELK)
+#  🚀 Starting Phase 3 Services (Kafka, GPS, ELK)
 # ===================================================
 
-header "Pokretanje Phase 3 servisa"
+header "Starting Phase 3 Services"
 
-info "Pokrećem Kafka, GPS i ELK stack..."
+info "Starting Kafka, GPS, and ELK stack..."
 cd "$PROJECT_ROOT"
 $DOCKER_COMPOSE -f docker-compose.phase3.yml up -d --build
 
-info "Čekam 15 sekundi da se Kafka pokrene..."
+info "Waiting 15 seconds for Kafka to start..."
 sleep 15
 
-success "Phase 3 servisi su uspješno pokrenuti!"
+success "Phase 3 services are now running!"
 
 # ===================================================
-#  🌐 Pokretanje web servisa faze 2
+#  🌐 Starting Phase 2 Web Services
 # ===================================================
 
-header "Pokretanje web servisa faze 2"
+header "Starting Phase 2 Web Services"
 
-info "Pokrećem web servise i nginx..."
+info "Starting web services and nginx..."
 cd "$PROJECT_ROOT/phase2"
 $DOCKER_COMPOSE -f docker-compose.phase2.yml up -d --build
 
-success "Phase 2 servisi su uspješno pokrenuti!"
+success "Phase 2 services are now running!"
 
 # ===================================================
-#  📊 Status servisa
+#  📊 Service Status Overview
 # ===================================================
 
-header "Pregled statusa servisa"
+header "Service Status Overview"
 
-echo -e "${BOLD}Faza 2:${NC}"
+echo -e "${BOLD}Phase 2:${NC}"
 cd "$PROJECT_ROOT/phase2"
 $DOCKER_COMPOSE -f docker-compose.phase2.yml ps
 
-echo -e "\n${BOLD}Faza 3:${NC}"
+echo -e "\n${BOLD}Phase 3:${NC}"
 cd "$PROJECT_ROOT"
 $DOCKER_COMPOSE -f docker-compose.phase3.yml ps
 
 # ===================================================
-#  🎉 Deployment uspješno završen!
+#  🎉 Deployment Completed Successfully!
 # ===================================================
 
-header "🎉 DEPLOYMENT ZAVRŠEN!"
+header "🎉 DEPLOYMENT COMPLETED!"
 
-echo -e "${GREEN}✅ Svi servisi su uspješno pokrenuti!${NC}"
+echo -e "${GREEN}✅ All services are now running!${NC}"
 echo ""
-echo -e "${BOLD}Pristupite servisima:${NC}"
-echo "  🌍 Web aplikacija:       http://localhost"
+echo -e "${BOLD}Access the services:${NC}"
+echo "  🌍 Web Application:      http://localhost"
 echo "  🔍 Neo4j Browser:       http://localhost:7474"
-echo "  🗃️  MongoDB:            localhost:27017"
 echo "  📊 Kibana:              http://localhost:5601"
 echo "  🔎 Elasticsearch:       http://localhost:9200"
 echo ""
-echo -e "${BOLD}Korisne komande:${NC}"
-echo "  📜 Logovi (Faza 2):     $DOCKER_COMPOSE -f phase2/docker-compose.phase2.yml logs -f"
-echo "  📜 Logovi (Faza 3):     $DOCKER_COMPOSE -f docker-compose.phase3.yml logs -f"
-echo "  ⏹️  Zaustavljanje (Faza 2): $DOCKER_COMPOSE -f phase2/docker-compose.phase2.yml down"
-echo "  ⏹️  Zaustavljanje (Faza 3): $DOCKER_COMPOSE -f docker-compose.phase3.yml down"
+echo -e "${BOLD}Useful Commands:${NC}"
+echo "  📜 Logs (Phase 2):      $DOCKER_COMPOSE -f phase2/docker-compose.phase2.yml logs -f"
+echo "  📜 Logs (Phase 3):      $DOCKER_COMPOSE -f docker-compose.phase3.yml logs -f"
+echo "  ⏹️  Stop (Phase 2):     $DOCKER_COMPOSE -f phase2/docker-compose.phase2.yml down"
+echo "  ⏹️  Stop (Phase 3):     $DOCKER_COMPOSE -f docker-compose.phase3.yml down"
 echo ""
 header "🧪 Quick Test"
 echo ""
-echo "  1. Otvorite:           http://localhost/create"
-echo "  2. Kreirajte pošiljku (npr. Zagreb → Rijeka)"
-echo "  3. Postavite status u IN_TRANSIT"
-echo "  4. Otvorite:           http://localhost/map"
-echo "  5. Pratite vozilo u realnom vremenu! 🚚"
+echo "  1. Open:                http://localhost/create"
+echo "  2. Create a shipment (e.g., Zagreb → Rijeka)"
+echo "  3. Set status to IN_TRANSIT"
+echo "  4. Open:                http://localhost/map"
+echo "  5. Watch the vehicle move in real-time! 🚚"
 echo ""
-echo -e "${YELLOW}Za dodatnu pomoć ili rješavanje problema, provjerite logove ili dokumentaciju.${NC}"
+echo -e "${YELLOW}For additional help or troubleshooting, check the logs or documentation.${NC}"
