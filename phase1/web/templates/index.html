@@ -86,6 +86,7 @@
         to support machine learning–based predictions.
     </li>
 </ul>
+</div>
 
 {% endblock %}
 
@@ -102,46 +103,72 @@ async function checkHealth() {
         const response = await fetch('/health');
         const data = await response.json();
 
+        let simulatorInfo = data.vehicle_simulator;
+        if (data.vehicle_simulator === 'active' && data.simulator_count > 0) {
+            simulatorInfo = `active (${data.simulator_count} simulations)`;
+        }
+
         statusContent.innerHTML = `
             <div class="health-grid">
-                <div class="health-item">
-                    <span class="label">Status</span>
-                    <span class="value">${data.status}</span>
+                <div class="health-item ${data.status === 'healthy' ? 'healthy' : 'unhealthy'}">
+                    <span class="label">Overall Status</span>
+                    <span class="value">${data.status.toUpperCase()}</span>
                 </div>
 
                 <div class="health-item">
-                    <span class="label">Server</span>
+                    <span class="label">Server ID</span>
                     <span class="value">${data.server_id}</span>
                 </div>
 
-                <div class="health-item">
-                    <span class="label">Phase</span>
-                    <span class="value">${data.phase}</span>
-                </div>
-
-                <div class="health-item">
+                <div class="health-item ${getHealthClass(data.mongodb)}">
                     <span class="label">MongoDB</span>
                     <span class="value">${data.mongodb}</span>
                 </div>
 
-                <div class="health-item">
+                <div class="health-item ${getHealthClass(data.neo4j)}">
                     <span class="label">Neo4j</span>
                     <span class="value">${data.neo4j}</span>
                 </div>
 
+                <div class="health-item ${getHealthClass(data.opensearch)}">
+                    <span class="label">OpenSearch</span>
+                    <span class="value">${data.opensearch}</span>
+                </div>
+
+                <div class="health-item ${getHealthClass(data.eta)}">
+                    <span class="label">ETA Service</span>
+                    <span class="value">${data.eta}</span>
+                </div>
+
+                <div class="health-item ${getHealthClass(data.vehicle_simulator)}">
+                    <span class="label">Vehicle Simulator</span>
+                    <span class="value">${simulatorInfo}</span>
+                </div>
+
                 <div class="health-item">
                     <span class="label">Timestamp</span>
-                    <span class="value">${data.timestamp}</span>
+                    <span class="value">${new Date(data.timestamp * 1000).toLocaleString()}</span>
                 </div>
             </div>
         `;
     } catch (error) {
         statusContent.innerHTML = `
             <div class="health-item error">
-                Failed to fetch system health
+                <span class="value">❌ Failed to fetch system health</span>
             </div>
         `;
     }
+}
+
+function getHealthClass(status) {
+    if (status === 'healthy' || status === 'active' || status === 'model') {
+        return 'healthy';
+    } else if (status === 'not_configured' || status === 'heuristic') {
+        return 'warning';
+    } else if (status && status.toString().includes('unhealthy')) {
+        return 'unhealthy';
+    }
+    return '';
 }
 </script>
 {% endblock %}
