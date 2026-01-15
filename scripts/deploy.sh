@@ -25,7 +25,7 @@ header() { echo -e "\n${BOLD}${BLUE}=== $1 ===${NC}\n"; }
 # ===================================================
 
 header "Dobrodošao u Deployment Script za Delivery Logistics!"
-echo "Ova skripta će pokrenuti sve potrebne servise za faze 1, 2 i 3 projekta."
+echo "Ova skripta će pokrenuti sve potrebne servise."
 echo "Molimo pratite upute i čekajte potvrde za svaki korak."
 echo ""
 
