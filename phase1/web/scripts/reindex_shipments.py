@@ -12,7 +12,6 @@ import sys
 from time import sleep
 
 try:
-    # import app object
     from app import app
 except Exception as e:
     print("Error importing Flask app. Run this from phase1/web as working dir or adjust PYTHONPATH.")
@@ -70,7 +69,6 @@ def main():
                 batch = []
                 sleep(0.1)
 
-        # final small batch
         for d in batch:
             try:
                 if args.dry_run:

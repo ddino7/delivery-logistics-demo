@@ -31,9 +31,7 @@ services:
     image: opensearchproject/opensearch-dashboards:2.9.0
     container_name: phase3_opensearch_dashboards
     environment:
-      # Use Phase 2 OpenSearch (single source of truth)
       - OPENSEARCH_HOSTS=["http://phase2_opensearch:9200"]
-      # Fix i18n crash you hit
       - I18N_LOCALE=en-US
       - DISABLE_SECURITY_DASHBOARDS_PLUGIN=true
     ports:

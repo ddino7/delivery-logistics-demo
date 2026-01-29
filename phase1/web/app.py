@@ -4,12 +4,10 @@ from services.mongodb_service import MongoDBService
 from services.eta_service import EtaService
 from routes.shipments import shipments_bp
 from routes.tracking import tracking_bp
-# `routes.location` depends on kafka; guard import so CLI tools (reindex) can run without kafka installed
 try:
     from routes.location import location_bp
 except Exception as _:
     location_bp = None
-# Import simulator blueprint
 try:
     from routes.simulator import simulator_bp
 except Exception as e:
@@ -21,11 +19,9 @@ import time
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialize MongoDB service
 db_service = MongoDBService(app.config['MONGO_URI'], app.config['MONGO_DB_NAME'])
 app.db_service = db_service
 
-# Initialize ETA predictor (Phase 4 - optional)
 eta_model_path = os.getenv("ETA_MODEL_PATH", "/app/phase4/model.joblib")
 eta_stats_path = os.getenv("ETA_STATS_PATH", "/app/phase4/model.json")
 try:
@@ -37,12 +33,10 @@ try:
 except Exception as e:
     print(f"⚠ ETA service unavailable: {e}")
 
-# Initialize OpenSearch (Phase 3)
 opensearch_url = os.getenv("OPENSEARCH_URL", "http://phase3_opensearch:9200")
 try:
     from services.opensearch_service import OpenSearchService
     _os_service = OpenSearchService(opensearch_url)
-    # Always attach the service if URL is provided; initial health may be delayed
     app.opensearch = _os_service
     if _os_service.is_available():
         print("✓ OpenSearch integration enabled (Phase 3)")
@@ -51,7 +45,6 @@ try:
 except Exception as e:
     print(f"⚠ OpenSearch integration unavailable: {e}")
 
-# Initialize Vehicle Simulator (Phase 3)
 vehicle_simulator = None
 try:
     from kafka import KafkaProducer
@@ -64,7 +57,6 @@ try:
         retries=3
     )
     
-    # Time scale: 1 = real-time, 100 = 100x faster (default), 1000 = 1000x faster
     time_scale = int(os.getenv("VEHICLE_TIME_SCALE", "100"))
     vehicle_simulator = VehicleSimulator(kafka_producer, db_service, time_scale=time_scale)
     app.vehicle_simulator = vehicle_simulator
@@ -72,14 +64,12 @@ try:
 except Exception as e:
     print(f"⚠ Vehicle Simulator unavailable: {e}")
 
-# Dashboards URL (can be overridden with env var DASHBOARDS_URL)
 dashboards_url = os.getenv('DASHBOARDS_URL', 'http://localhost:5601/app/home#/')
 
 @app.context_processor
 def inject_dashboards_url():
     return dict(dashboards_url=dashboards_url)
 
-# Initialize Neo4j service (Phase 2)
 neo4j_service = None
 if os.getenv('NEO4J_URI'):
     try:
@@ -93,20 +83,17 @@ if os.getenv('NEO4J_URI'):
         )
         app.neo4j_service = neo4j_service
         
-        # Register network blueprint
         app.register_blueprint(network_bp, url_prefix='/api/network')
         print("✓ Neo4j integration enabled (Phase 2)")
     except Exception as e:
         print(f"⚠ Neo4j integration unavailable: {e}")
 
-# Register blueprints
 app.register_blueprint(shipments_bp, url_prefix='/api/shipments')
 app.register_blueprint(tracking_bp, url_prefix='/api/tracking')
 if location_bp:
     app.register_blueprint(location_bp, url_prefix='/api/location')
 if simulator_bp:
     app.register_blueprint(simulator_bp, url_prefix='/api/simulator')
-# register search blueprint (Phase 3)
 try:
     from routes.search import search_bp
 

@@ -3,7 +3,7 @@ import os
 from typing import Any, Dict, Tuple
 
 try:
-    import joblib  # type: ignore
+    import joblib
 except Exception:
     joblib = None
 

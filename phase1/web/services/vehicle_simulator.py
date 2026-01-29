@@ -27,11 +27,9 @@ class VehicleSimulator:
         self.mongo_service = mongo_service
         self.time_scale = time_scale
         
-        # Active simulations: tracking_number -> simulation_thread
         self.active_simulations: Dict[str, threading.Thread] = {}
         self.stop_flags: Dict[str, threading.Event] = {}
         
-        # Lock for thread-safe operations
         self.lock = threading.Lock()
     
     def start_simulation(self, tracking_number: str, driver_id: str = None):
@@ -43,12 +41,10 @@ class VehicleSimulator:
             driver_id: Optional driver ID (defaults to tracking number)
         """
         with self.lock:
-            # Check if already running
             if tracking_number in self.active_simulations:
                 print(f"[Simulator] Already simulating {tracking_number}")
                 return False
             
-            # Get shipment data from MongoDB
             collection = self.mongo_service.get_collection('shipments')
             shipment = collection.find_one({'tracking_number': tracking_number})
             
@@ -61,16 +57,13 @@ class VehicleSimulator:
                 print(f"[Simulator] No route for shipment {tracking_number}")
                 return False
             
-            # Generate vehicle_id
             vehicle_id = f"VEH-{tracking_number}"
             if not driver_id:
                 driver_id = f"DRV-{tracking_number[-6:]}"
             
-            # Create stop flag
             stop_flag = threading.Event()
             self.stop_flags[tracking_number] = stop_flag
             
-            # Start simulation thread
             thread = threading.Thread(
                 target=self._simulate_route,
                 args=(tracking_number, vehicle_id, driver_id, route, stop_flag),
@@ -103,7 +96,7 @@ class VehicleSimulator:
         with self.lock:
             if tracking_number not in self.active_simulations:
                 print(f"[Simulator] No active simulation for {tracking_number} (already stopped or never started)")
-                return True  # Still return True since vehicle was removed from DB
+                return True
         
         
             self.stop_flags[tracking_number].set()
@@ -133,7 +126,6 @@ class VehicleSimulator:
             
             print(f"[Simulator] {vehicle_id} starting route with {len(locations)} locations")
             
-            # Iterate through route segments
             for i in range(len(locations) - 1):
                 if stop_flag.is_set():
                     print(f"[Simulator] {vehicle_id} stopped by flag")
@@ -142,12 +134,10 @@ class VehicleSimulator:
                 start_loc = locations[i]
                 end_loc = locations[i + 1]
                 
-                # Get segment details if available
                 segment = routes[i] if i < len(routes) else {}
-                distance_km = segment.get('distance', 50)  # default 50km
-                time_hours = segment.get('time', 1.0)  # default 1 hour
+                distance_km = segment.get('distance', 50)
+                time_hours = segment.get('time', 1.0)
                 
-                # Simulate movement along segment
                 self._simulate_segment(
                     vehicle_id, driver_id, tracking_number,
                     start_loc, end_loc, 
@@ -184,24 +174,19 @@ class VehicleSimulator:
             stop_flag: Event to signal when to stop
             time_scale: Speed-up factor (100 = 100x faster)
         """
-        # Extract coordinates
         start_lat = start_loc.get('lat', start_loc.get('latitude', 45.0))
         start_lng = start_loc.get('lng', start_loc.get('longitude', 14.0))
         end_lat = end_loc.get('lat', end_loc.get('latitude', 45.5))
         end_lng = end_loc.get('lng', end_loc.get('longitude', 15.0))
         
-        # Calculate real duration and accelerated duration
-        real_duration_seconds = time_hours * 3600  # Real-world time
-        simulated_duration_seconds = real_duration_seconds / time_scale  # Accelerated time
+        real_duration_seconds = time_hours * 3600
+        simulated_duration_seconds = real_duration_seconds / time_scale
         
-        # GPS update interval (keep at 3 seconds for smooth animation)
         update_interval = 3.0
         
-        # Calculate number of steps based on simulated duration
         num_steps = int(simulated_duration_seconds / update_interval)
-        num_steps = max(5, min(num_steps, 200))  # between 5 and 200 steps
+        num_steps = max(5, min(num_steps, 200))
         
-        # Recalculate actual interval to match simulated duration
         actual_interval = simulated_duration_seconds / num_steps
         
         print(f"[Simulator] {vehicle_id}: {start_loc['city']} → {end_loc['city']}")
@@ -212,17 +197,14 @@ class VehicleSimulator:
             if stop_flag.is_set():
                 return
             
-            # Linear interpolation
             progress = step / num_steps
             current_lat = start_lat + (end_lat - start_lat) * progress
             current_lng = start_lng + (end_lng - start_lng) * progress
             
-            # Add small random variation for realism
             import random
             current_lat += random.uniform(-0.001, 0.001)
             current_lng += random.uniform(-0.001, 0.001)
             
-            # Send GPS event to Kafka
             event = {
                 'vehicle_id': vehicle_id,
                 'driver_id': driver_id,
@@ -246,7 +228,6 @@ class VehicleSimulator:
             except Exception as e:
                 print(f"[Simulator] Kafka send error: {e}")
             
-            # Wait before next update
             time.sleep(actual_interval)
     
     def get_active_simulations(self) -> list:

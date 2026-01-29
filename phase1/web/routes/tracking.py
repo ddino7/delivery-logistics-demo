@@ -17,13 +17,10 @@ def track_shipment(tracking_number):
                 'message': 'Shipment not found'
             }), 404
         
-        # Convert ObjectId
         shipment['_id'] = str(shipment['_id'])
         
-        # Add found flag
         shipment['found'] = True
         
-        # Return EVERYTHING
         return jsonify(shipment), 200
         
     except Exception as e:

@@ -38,7 +38,6 @@ def main():
                 if not vehicle_id:
                     continue
 
-                # upsert latest
                 event["updated_at"] = time.time()
 
                 col.update_one(
@@ -46,7 +45,6 @@ def main():
                     {"$set": event},
                     upsert=True
                 )
-                # Emit structured JSON log for Fluent Bit to collect
                 log_obj = {
                     "@timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     "service": "location-consumer",

@@ -10,12 +10,10 @@ def create_shipment():
     try:
         data = request.get_json()
         
-        # Validate data
         is_valid, error = Shipment.validate_data(data)
         if not is_valid:
             return jsonify({'error': error}), 400
         
-        # Create shipment
         shipment = Shipment(
             sender=data['sender'],
             receiver=data['receiver'],
@@ -25,11 +23,9 @@ def create_shipment():
             delivery_address=data['delivery_address']
         )
         
-        # PHASE 2 INTEGRATION: Calculate optimal route
         route_info = None
         if hasattr(current_app, 'neo4j_service') and current_app.neo4j_service:
             try:
-                # Get cities
                 pickup_city = data.get('pickup_city', '').strip()
                 delivery_city = data.get('delivery_city', '').strip()
                 optimize_by = data.get('optimize_by', 'time')
@@ -55,7 +51,6 @@ def create_shipment():
         else:
             print("⚠️ Neo4j service not available")
         
-        # Save shipment with route info
         shipment_dict = shipment.to_dict()
         if route_info:
             shipment_dict['route'] = route_info
@@ -63,7 +58,6 @@ def create_shipment():
             shipment_dict['estimated_cost_eur'] = route_info['total_cost_eur']
             shipment_dict['optimize_by'] = data.get('optimize_by', 'time')
 
-        # PHASE 4 OPTIONAL: Predict delivery time (model or heuristic)
         if route_info and hasattr(current_app, "eta_service"):
             try:
                 eta_hours, eta_source = current_app.eta_service.predict(shipment_dict, route_info)
@@ -78,12 +72,10 @@ def create_shipment():
         collection = db_service.get_collection('shipments')
         result = collection.insert_one(shipment_dict)
 
-        # Index in OpenSearch (if configured) - use shipment dict without Mongo _id
         try:
             if hasattr(current_app, "opensearch"):
                 saved_doc = dict(shipment_dict)
                 saved_doc.pop("_id", None)
-                # include string id for completeness (OpenSearchService will prefer tracking_number)
                 saved_doc["id"] = str(result.inserted_id)
                 try:
                     current_app.opensearch.index_shipment(saved_doc)
@@ -102,7 +94,6 @@ def create_shipment():
             response["predicted_delivery_hours"] = shipment_dict["predicted_delivery_hours"]
             response["prediction_source"] = shipment_dict.get("prediction_source", "heuristic")
         
-        # Include route in response
         if route_info:
             response['route'] = {
                 'path': [loc['city'] for loc in route_info['locations']],
@@ -164,7 +155,6 @@ def update_status(tracking_number):
         shipment = Shipment.from_dict(shipment_data)
         shipment.update_status(new_status, note)
 
-        # If delivered, set delivered_at and compute delivery time
         extra_fields = {}
         if new_status == 'DELIVERED':
             delivered_at = datetime.utcnow()
@@ -189,14 +179,11 @@ def update_status(tracking_number):
             {'$set': update_payload}
         )
 
-        # PHASE 3: Vehicle Simulation Control
         if hasattr(current_app, 'vehicle_simulator') and current_app.vehicle_simulator:
             try:
-                # Start simulation when shipment goes IN_TRANSIT
                 if new_status == 'IN_TRANSIT' and old_status != 'IN_TRANSIT':
-                    # Check if shipment has a route
                     if shipment_data.get('route'):
-                        driver_id = data.get('driver_id')  # Optional driver ID from request
+                        driver_id = data.get('driver_id')
                         success = current_app.vehicle_simulator.start_simulation(
                             tracking_number, 
                             driver_id
@@ -208,7 +195,6 @@ def update_status(tracking_number):
                     else:
                         print(f"⚠️ Cannot simulate {tracking_number} - no route available")
                 
-                # Stop simulation when delivered
                 elif new_status == 'DELIVERED':
                     success = current_app.vehicle_simulator.stop_simulation(tracking_number)
                     if success:
@@ -219,7 +205,6 @@ def update_status(tracking_number):
                 import traceback
                 traceback.print_exc()
 
-        # Re-index updated shipment in OpenSearch (if configured)
         try:
             if hasattr(current_app, "opensearch"):
                 updated_doc = collection.find_one({'tracking_number': tracking_number}, {'_id': 0})
@@ -264,7 +249,6 @@ def search_shipments():
 
         query = {}
 
-        # spec. filteri
         if tracking:
             query["tracking_number"] = {"$regex": tracking, "$options": "i"}
 
@@ -274,7 +258,6 @@ def search_shipments():
         if recipient:
             query["receiver.name"] = {"$regex": recipient, "$options": "i"}
 
-        # free-text q across important fields
         if q:
             query["$or"] = [
                 {"tracking_number": {"$regex": q, "$options": "i"}},
@@ -293,8 +276,6 @@ def search_shipments():
 
 @shipments_bp.route("/reindex", methods=["POST"])
 def reindex_shipments():
-    # Reindexing via HTTP endpoint is unsafe for production and has been disabled.
-    # Use the CLI script at `scripts/reindex_shipments.py` instead.
     return jsonify({"ok": False, "error": "Reindex endpoint disabled. Use scripts/reindex_shipments.py."}), 404
 
 @shipments_bp.route('/', methods=['GET'])
@@ -334,12 +315,10 @@ def update_shipment(tracking_number):
         db_service = current_app.db_service
         collection = db_service.get_collection('shipments')
         
-        # Check if exists
         shipment = collection.find_one({'tracking_number': tracking_number})
         if not shipment:
             return jsonify({'error': 'Shipment not found'}), 404
         
-        # Update fields
         update_data = {
             'sender': data.get('sender', shipment['sender']),
             'receiver': data.get('receiver', shipment['receiver']),
@@ -354,12 +333,10 @@ def update_shipment(tracking_number):
             {'$set': update_data}
         )
 
-        # Re-fetch - doc - re-index u OpenSearch-u
         try:
             if hasattr(current_app, "opensearch"):
                 updated_doc = collection.find_one({'tracking_number': tracking_number}, {'_id': 0})
                 if updated_doc:
-                    # da budemo isg da postoji id
                     if 'id' not in updated_doc:
                         pass
                     try:
@@ -386,7 +363,6 @@ def delete_shipment(tracking_number):
         
         result = collection.delete_one({'tracking_number': tracking_number})
         
-        # Stop simulation if running
         if hasattr(current_app, 'vehicle_simulator') and current_app.vehicle_simulator:
             try:
                 current_app.vehicle_simulator.stop_simulation(tracking_number)
@@ -399,7 +375,6 @@ def delete_shipment(tracking_number):
         if result.deleted_count == 0:
             return jsonify({'error': 'Shipment not found'}), 404
         
-        # Stop simulation if running
         if hasattr(current_app, 'vehicle_simulator') and current_app.vehicle_simulator:
             try:
                 current_app.vehicle_simulator.stop_simulation(tracking_number)

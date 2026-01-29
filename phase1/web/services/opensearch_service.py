@@ -12,7 +12,6 @@ class OpenSearchService:
 
     def is_available(self) -> bool:
         try:
-            # cluster health is a lightweight way to check availability
             r = requests.get(f"{self.base_url}/_cluster/health", timeout=2)
             return r.status_code == 200
         except Exception:
@@ -25,7 +24,6 @@ class OpenSearchService:
 
         def _serialize(obj):
             if isinstance(obj, datetime):
-                # use ISO format
                 return obj.isoformat()
             if ObjectId is not None and isinstance(obj, ObjectId):
                 return str(obj)
@@ -43,7 +41,6 @@ class OpenSearchService:
                 timeout=3,
             )
         except Exception:
-            # don't raise — indexing failures should not break main flow
             raise
 
     def search_shipments(self, q: str, size: int = 50):

@@ -38,7 +38,7 @@ def ingest_location_event():
     driver_id = data.get("driver_id", "unknown")
     lat = data.get("lat")
     lng = data.get("lng")
-    ts = data.get("ts")  # optional, can be unix or ISO
+    ts = data.get("ts")
 
     # basic validation
     if not vehicle_id or lat is None or lng is None:
@@ -71,14 +71,12 @@ def get_latest_locations():
         db = current_app.db_service
         col = db.get_collection('vehicle_latest_locations')
         
-        # Optional: filter out stale locations (older than 5 minutes)
-        cutoff_time = time.time() - 300  # 5 minutes
+        cutoff_time = time.time() - 300
         
         vehicles = list(col.find({
             'updated_at': {'$gt': cutoff_time}
         }))
         
-        # Remove MongoDB _id
         for v in vehicles:
             v.pop('_id', None)
         

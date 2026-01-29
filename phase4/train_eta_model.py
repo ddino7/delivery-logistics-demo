@@ -6,8 +6,8 @@ from typing import Any, Dict, List
 from pymongo import MongoClient
 
 
-DEFAULT_SPEED = 45  # km/h fallback
-DEFAULT_HANDLING = 0.25  # hours
+DEFAULT_SPEED = 45
+DEFAULT_HANDLING = 0.25
 
 
 def fetch_deliveries(uri: str, db_name: str) -> List[Dict[str, Any]]:
