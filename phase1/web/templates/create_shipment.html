@@ -3,14 +3,191 @@
 {% block title %}Create Shipment - Delivery System{% endblock %}
 
 {% block content %}
+<style>
+
+.departure-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.weather-panel {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 8px;
+}
+
+.weather-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.toggle-label {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* pill toggle */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: #cbd5e1; border-radius: 24px;
+    transition: background .2s;
+}
+.toggle-slider:before {
+    content: "";
+    position: absolute;
+    width: 18px; height: 18px;
+    left: 3px; top: 3px;
+    background: white; border-radius: 50%;
+    transition: transform .2s;
+}
+.toggle-switch input:checked + .toggle-slider { background: #3b82f6; }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+.weather-auto-display {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.w-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-align: center;
+}
+.w-card .w-icon { font-size: 1.4rem; margin-bottom: 2px; }
+.w-card .w-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+}
+.w-card .w-label { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+.w-card.w-bad { border-color: #fca5a5; background: #fff5f5; }
+.w-card.w-warn { border-color: #fde68a; background: #fffbeb; }
+
+.weather-manual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.weather-manual-grid .form-group { margin-bottom: 0; }
+
+.weather-loading {
+    text-align: center;
+    padding: 20px;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+/* Holiday badge */
+.holiday-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: #92400e;
+    font-weight: 600;
+    margin-top: 6px;
+}
+
+/* ML Risk Panel */
+.risk-panel {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 16px;
+    border: 2px solid;
+}
+.risk-panel.risk-high   { background: #fff5f5; border-color: #fc8181; }
+.risk-panel.risk-medium { background: #fffbeb; border-color: #f6e05e; }
+.risk-panel.risk-low    { background: #f0fdf4; border-color: #68d391; }
+
+.risk-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.risk-badge {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+.risk-badge.risk-high   { color: #e53e3e; }
+.risk-badge.risk-medium { color: #d69e2e; }
+.risk-badge.risk-low    { color: #38a169; }
+
+.risk-label {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+.risk-label.risk-high   { color: #c53030; }
+.risk-label.risk-medium { color: #b7791f; }
+.risk-label.risk-low    { color: #276749; }
+
+.risk-subtitle {
+    font-size: 0.82rem;
+    color: #718096;
+    margin-top: 2px;
+}
+
+.risk-factors {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+}
+.risk-factors ul {
+    margin: 6px 0 0 0;
+    padding-left: 20px;
+    font-size: 0.85rem;
+    color: #4a5568;
+}
+.risk-factors ul li { margin-bottom: 3px; }
+.context-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+.ctx-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.ctx-card .ctx-title { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+.ctx-card .ctx-value { font-size: 1rem; font-weight: 700; color: #1e293b; }
+.ctx-card.ctx-high   { border-color: #fca5a5; background: #fff5f5; }
+.ctx-card.ctx-medium { border-color: #fde68a; background: #fffbeb; }
+.ctx-card.ctx-low    { border-color: #bbf7d0; background: #f0fdf4; }
+</style>
+
 <div class="page-header">
     <h1>📦 Create New Shipment</h1>
 </div>
 
 <div class="form-container">
     <form id="shipmentForm">
-        
-        <!-- ROUTE CONFIGURATION - NA POČETKU FORME -->
+
+        <!-- ROUTE CONFIGURATION -->
         <div class="form-section">
             <h2>Route Configuration</h2>
             <div class="form-group">
@@ -30,7 +207,7 @@
                     <option value="Slavonski Brod">Slavonski Brod</option>
                 </select>
             </div>
-            
+
             <div class="form-group">
                 <label for="delivery_city">Delivery City *</label>
                 <select id="delivery_city" name="delivery_city" required>
@@ -48,7 +225,7 @@
                     <option value="Slavonski Brod">Slavonski Brod</option>
                 </select>
             </div>
-            
+
             <div class="form-group">
                 <label for="optimize_by">Optimize Route By</label>
                 <select id="optimize_by" name="optimize_by">
@@ -58,7 +235,95 @@
                 </select>
             </div>
         </div>
-        
+
+        <!-- ── PHASE 4 — DEPARTURE DATE & TIME ─────────────────────────────── -->
+        <div class="form-section">
+            <h2>🗓️ Planned Departure</h2>
+            <p style="font-size:.85rem;color:#64748b;margin-bottom:12px;">
+                Used to fetch real weather conditions and assess delivery risk.
+            </p>
+
+            <div class="departure-row">
+                <div class="form-group">
+                    <label for="departure_date">Departure Date *</label>
+                    <input type="date" id="departure_date" name="departure_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="departure_hour">Departure Hour *</label>
+                    <select id="departure_hour" name="departure_hour" required>
+                        {% for h in range(5, 21) %}
+                        <option value="{{ '%02d'|format(h) }}"
+                            {% if h == 9 %}selected{% endif %}>
+                            {{ '%02d'|format(h) }}:00
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Holiday banner (shown dynamically) -->
+            <div id="holiday-banner" style="display:none;"></div>
+
+            <!-- ── WEATHER PANEL ───────────────────────────────────────────── -->
+            <div class="weather-panel" id="weatherPanel" style="display:none;">
+                <div class="weather-toggle-row">
+                    <span class="toggle-label">Auto (API)</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="weatherModeToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Manual override</span>
+                    <span style="margin-left:auto;font-size:.78rem;color:#94a3b8;" id="weatherSourceLabel"></span>
+                </div>
+
+                <!-- Auto display -->
+                <div id="weatherAutoSection">
+                    <div id="weatherLoading" class="weather-loading" style="display:none;">
+                        ⏳ Fetching weather data…
+                    </div>
+                    <div id="weatherAutoDisplay" class="weather-auto-display" style="display:none;"></div>
+                    <div id="weatherError" style="display:none;font-size:.83rem;color:#ef4444;padding:8px 0;"></div>
+                </div>
+
+                <!-- Manual override inputs (hidden by default) -->
+                <div id="weatherManualSection" style="display:none;">
+                    <div class="weather-manual-grid">
+                        <div class="form-group">
+                            <label>Precipitation (mm)</label>
+                            <input type="number" id="man_precipitation" step="0.1" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Wind Speed (km/h)</label>
+                            <input type="number" id="man_windspeed" step="1" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Visibility (m)</label>
+                            <input type="number" id="man_visibility" step="100" min="0" value="10000">
+                        </div>
+                        <div class="form-group">
+                            <label>Temperature (°C)</label>
+                            <input type="number" id="man_temperature" step="0.5" value="15">
+                        </div>
+                        <div class="form-group">
+                            <label>Weather Code (WMO)</label>
+                            <input type="number" id="man_weathercode" step="1" min="0" value="0"
+                                   title="0=Clear, 61=Rain, 71=Snow, 95=Storm">
+                        </div>
+                        <div class="form-group">
+                            <label>Bad Weather Nodes</label>
+                            <input type="number" id="man_bad_nodes" step="1" min="0" value="0">
+                        </div>
+                    </div>
+                    <p style="font-size:.75rem;color:#94a3b8;margin-top:8px;">
+                        WMO codes: 0 = Clear · 61 = Rain · 71 = Snow · 95 = Thunderstorm
+                    </p>
+                </div>
+            </div>
+            <!-- /weather panel -->
+        </div>
+        <!-- /departure section -->
+
+        <!-- SENDER -->
         <div class="form-section">
             <h2>Sender Information</h2>
             <div class="form-group">
@@ -75,6 +340,7 @@
             </div>
         </div>
 
+        <!-- RECEIVER -->
         <div class="form-section">
             <h2>Receiver Information</h2>
             <div class="form-group">
@@ -91,6 +357,7 @@
             </div>
         </div>
 
+        <!-- SHIPMENT DETAILS -->
         <div class="form-section">
             <h2>Shipment Details</h2>
             <div class="form-group">
@@ -107,6 +374,7 @@
             </div>
         </div>
 
+        <!-- PRODUCTS -->
         <div class="form-section">
             <h2>Products</h2>
             <div id="products-container">
@@ -120,7 +388,7 @@
 
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Create Shipment</button>
-            <button type="reset" class="btn btn-secondary">Reset Form</button>
+            <button type="reset" class="btn btn-secondary" onclick="onReset()">Reset Form</button>
         </div>
     </form>
 
@@ -130,102 +398,299 @@
 
 {% block scripts %}
 <script>
-let productCount = 1;
+// ── State ─────────────────────────────────────────────────────────────────────
+let cachedWeather   = null;   // last auto-fetched weather dict
+let weatherManual   = false;  // is manual toggle on?
+let weatherFetchTimer = null; // debounce timer
 
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    // Default departure date = today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('departure_date').value = today;
+
+    // Trigger initial holiday check
+    checkHolidayAndWeather();
+
+    // Listeners
+    document.getElementById('departure_date').addEventListener('change', onDepartureChange);
+    document.getElementById('departure_hour').addEventListener('change', onDepartureChange);
+    document.getElementById('pickup_city').addEventListener('change', onRouteChange);
+    document.getElementById('delivery_city').addEventListener('change', onRouteChange);
+    document.getElementById('weatherModeToggle').addEventListener('change', onWeatherToggle);
+});
+
+function onDepartureChange() {
+    checkHolidayAndWeather();
+}
+
+function onRouteChange() {
+    // Only re-fetch weather if both cities are selected
+    const p = document.getElementById('pickup_city').value;
+    const d = document.getElementById('delivery_city').value;
+    if (p && d) checkHolidayAndWeather();
+}
+
+function onWeatherToggle() {
+    weatherManual = document.getElementById('weatherModeToggle').checked;
+    document.getElementById('weatherAutoSection').style.display  = weatherManual ? 'none' : 'block';
+    document.getElementById('weatherManualSection').style.display = weatherManual ? 'block' : 'none';
+}
+
+function onReset() {
+    cachedWeather = null;
+    weatherManual = false;
+    document.getElementById('weatherModeToggle').checked = false;
+    document.getElementById('weatherPanel').style.display = 'none';
+    document.getElementById('holiday-banner').style.display = 'none';
+    document.getElementById('weatherAutoSection').style.display = 'block';
+    document.getElementById('weatherManualSection').style.display = 'none';
+}
+
+// ── Holiday check ─────────────────────────────────────────────────────────────
+async function checkHolidayAndWeather() {
+    const dateStr = document.getElementById('departure_date').value;
+    if (!dateStr) return;
+
+    // Check holiday via backend (which uses cached Nager.Date data)
+    try {
+        const resp = await fetch(`/api/weather/holiday?date=${dateStr}`);
+        if (resp.ok) {
+            const data = await resp.json();
+            const banner = document.getElementById('holiday-banner');
+            if (data.is_holiday) {
+                banner.style.display = 'block';
+                banner.innerHTML = `<span class="holiday-badge">🎉 ${data.holiday_name} — expect higher traffic on tourist routes</span>`;
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+    } catch (_) {}
+
+    // Debounce weather fetch
+    clearTimeout(weatherFetchTimer);
+    weatherFetchTimer = setTimeout(fetchWeather, 600);
+}
+
+// ── Auto weather fetch ────────────────────────────────────────────────────────
+async function fetchWeather() {
+    const dateStr   = document.getElementById('departure_date').value;
+    const hourStr   = document.getElementById('departure_hour').value;
+    const origin    = document.getElementById('pickup_city').value;
+    const dest      = document.getElementById('delivery_city').value;
+
+    if (!dateStr || !origin || !dest) return;
+
+    const panel = document.getElementById('weatherPanel');
+    panel.style.display = 'block';
+
+    if (weatherManual) return;  // manual mode — don't auto-fetch
+
+    const loading = document.getElementById('weatherLoading');
+    const display = document.getElementById('weatherAutoDisplay');
+    const errDiv  = document.getElementById('weatherError');
+
+    loading.style.display = 'block';
+    display.style.display = 'none';
+    errDiv.style.display  = 'none';
+
+    try {
+        const params = new URLSearchParams({
+            date:   dateStr,
+            hour:   hourStr,
+            origin: origin,
+            dest:   dest
+        });
+        const resp = await fetch(`/api/weather/route?${params}`);
+        const data = await resp.json();
+
+        if (!resp.ok) throw new Error(data.error || 'Weather fetch failed');
+
+        cachedWeather = data.weather;
+        renderWeatherCards(data.weather, data.source);
+
+        const srcLabel = document.getElementById('weatherSourceLabel');
+        srcLabel.textContent = sourceLabel(data.source);
+
+    } catch (e) {
+        loading.style.display = 'none';
+        errDiv.style.display  = 'block';
+        errDiv.textContent    = `⚠️ ${e.message} — you can enter weather manually.`;
+        // Show manual toggle hint
+        document.getElementById('weatherModeToggle').parentElement.parentElement
+            .querySelector('.toggle-label').style.color = '#ef4444';
+    }
+}
+
+function sourceLabel(src) {
+    const labels = {
+        openmeteo_forecast:          '📡 Live forecast',
+        openmeteo_historical:        '📚 Historical data',
+        openmeteo_seasonal_estimate: '📊 Seasonal estimate',
+        manual:                      '✍️ Manual'
+    };
+    return labels[src] || src;
+}
+
+function renderWeatherCards(w, source) {
+    const loading = document.getElementById('weatherLoading');
+    const display = document.getElementById('weatherAutoDisplay');
+
+    loading.style.display = 'none';
+    display.style.display = 'grid';
+
+    const rain   = w.max_precipitation_mm;
+    const wind   = w.max_windspeed_kmh;
+    const vis    = w.min_visibility_m;
+    const temp   = w.avg_temperature_c;
+    const code   = w.max_weather_code;
+    const bad    = w.bad_weather_nodes;
+
+    const rainClass = rain > 10 ? 'w-bad' : rain > 3 ? 'w-warn' : '';
+    const windClass = wind > 60 ? 'w-bad' : wind > 35 ? 'w-warn' : '';
+    const visClass  = vis < 1000 ? 'w-bad' : vis < 4000 ? 'w-warn' : '';
+
+    display.innerHTML = `
+        <div class="w-card ${rainClass}">
+            <div class="w-icon">🌧️</div>
+            <div class="w-value">${rain} mm</div>
+            <div class="w-label">Max Precipitation</div>
+        </div>
+        <div class="w-card ${windClass}">
+            <div class="w-icon">💨</div>
+            <div class="w-value">${wind} km/h</div>
+            <div class="w-label">Max Wind Speed</div>
+        </div>
+        <div class="w-card ${visClass}">
+            <div class="w-icon">👁️</div>
+            <div class="w-value">${(vis/1000).toFixed(1)} km</div>
+            <div class="w-label">Min Visibility</div>
+        </div>
+        <div class="w-card">
+            <div class="w-icon">🌡️</div>
+            <div class="w-value">${temp}°C</div>
+            <div class="w-label">Avg Temperature</div>
+        </div>
+        <div class="w-card ${code >= 61 ? 'w-warn' : ''}">
+            <div class="w-icon">${weatherCodeIcon(code)}</div>
+            <div class="w-value">${weatherCodeLabel(code)}</div>
+            <div class="w-label">Conditions</div>
+        </div>
+        <div class="w-card ${bad > 0 ? 'w-warn' : ''}">
+            <div class="w-icon">⚠️</div>
+            <div class="w-value">${bad} / ${w.num_nodes_checked || '?'}</div>
+            <div class="w-label">Bad Weather Nodes</div>
+        </div>
+    `;
+}
+
+function weatherCodeIcon(code) {
+    if (code === 0)  return '☀️';
+    if (code <= 3)   return '⛅';
+    if (code <= 49)  return '🌫️';
+    if (code <= 67)  return '🌧️';
+    if (code <= 77)  return '🌨️';
+    if (code <= 82)  return '🌦️';
+    if (code <= 99)  return '⛈️';
+    return '🌥️';
+}
+
+function weatherCodeLabel(code) {
+    if (code === 0)  return 'Clear';
+    if (code <= 3)   return 'Partly cloudy';
+    if (code <= 49)  return 'Foggy';
+    if (code <= 67)  return 'Rainy';
+    if (code <= 77)  return 'Snowy';
+    if (code <= 82)  return 'Showers';
+    if (code <= 99)  return 'Thunderstorm';
+    return 'Unknown';
+}
+
+// ── Products ──────────────────────────────────────────────────────────────────
 function addProduct() {
     const container = document.getElementById('products-container');
-    const productItem = document.createElement('div');
-    productItem.className = 'product-item';
-    productItem.innerHTML = `
+    const item = document.createElement('div');
+    item.className = 'product-item';
+    item.innerHTML = `
         <input type="text" name="product_name[]" placeholder="Product name">
         <input type="number" name="product_quantity[]" placeholder="Quantity" min="1" value="1">
         <button type="button" class="btn-remove" onclick="this.parentElement.remove()">×</button>
     `;
-    container.appendChild(productItem);
-    productCount++;
+    container.appendChild(item);
 }
 
+// ── Form submit ───────────────────────────────────────────────────────────────
 document.getElementById('shipmentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const resultBox = document.getElementById('result');
     resultBox.style.display = 'block';
-    resultBox.innerHTML = '<p>Creating shipment...</p>';
-    
-    // Collect form data
+    resultBox.className = 'result-box';
+    resultBox.innerHTML = '<p>Creating shipment…</p>';
+
     const formData = new FormData(e.target);
-    
-    // Build products array
-    const productNames = formData.getAll('product_name[]');
+
+    // Products
+    const productNames      = formData.getAll('product_name[]');
     const productQuantities = formData.getAll('product_quantity[]');
     const products = productNames
-        .map((name, i) => ({
-            name: name,
-            quantity: parseInt(productQuantities[i]) || 1
-        }))
+        .map((name, i) => ({ name, quantity: parseInt(productQuantities[i]) || 1 }))
         .filter(p => p.name.trim() !== '');
-    
-    // Build shipment data
+
+    // Departure ISO string
+    const dateStr = document.getElementById('departure_date').value;
+    const hourStr = document.getElementById('departure_hour').value;
+    const plannedDeparture = dateStr && hourStr ? `${dateStr}T${hourStr}:00` : null;
+
+    // Weather payload
+    let manualWeather = null;
+    if (weatherManual) {
+        manualWeather = {
+            precipitation_mm:  parseFloat(document.getElementById('man_precipitation').value) || 0,
+            windspeed_kmh:     parseFloat(document.getElementById('man_windspeed').value) || 0,
+            visibility_m:      parseFloat(document.getElementById('man_visibility').value) || 10000,
+            temperature_c:     parseFloat(document.getElementById('man_temperature').value) || 15,
+            weather_code:      parseInt(document.getElementById('man_weathercode').value) || 0,
+            bad_weather_nodes: parseInt(document.getElementById('man_bad_nodes').value) || 0,
+        };
+    }
+
     const shipmentData = {
         sender: {
-            name: formData.get('sender_name'),
+            name:  formData.get('sender_name'),
             phone: formData.get('sender_phone'),
             email: formData.get('sender_email')
         },
         receiver: {
-            name: formData.get('receiver_name'),
+            name:  formData.get('receiver_name'),
             phone: formData.get('receiver_phone'),
             email: formData.get('receiver_email')
         },
-        weight: parseFloat(formData.get('weight')),
-        pickup_address: formData.get('pickup_address'),
+        weight:           parseFloat(formData.get('weight')),
+        pickup_address:   formData.get('pickup_address'),
         delivery_address: formData.get('delivery_address'),
-        pickup_city: formData.get('pickup_city'),
-        delivery_city: formData.get('delivery_city'),
-        optimize_by: formData.get('optimize_by'),
-        products: products
+        pickup_city:      formData.get('pickup_city'),
+        delivery_city:    formData.get('delivery_city'),
+        optimize_by:      formData.get('optimize_by'),
+        products,
+        planned_departure: plannedDeparture,
+        manual_weather:    manualWeather
     };
-    
-    console.log('Sending shipment data:', shipmentData);
-    
+
     try {
         const response = await fetch('/api/shipments/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(shipmentData)
         });
-        
+
         const data = await response.json();
-        console.log('Response:', data);
-        
+
         if (response.ok) {
             resultBox.className = 'result-box success';
-            
-            let routeHtml = '';
-            if (data.route) {
-                routeHtml = `
-                    <div class="route-result">
-                        <h4>🗺️ Calculated Route:</h4>
-                        <p><strong>Path:</strong> ${data.route.path.join(' → ')}</p>
-                        <p><strong>Distance:</strong> ${data.route.distance_km} km</p>
-                        <p><strong>Time:</strong> ${data.route.time_hours.toFixed(1)} hours</p>
-                        <p><strong>Cost:</strong> ${data.route.cost_eur.toFixed(2)} EUR</p>
-                        <p><strong>Optimized by:</strong> ${data.route.optimized_by}</p>
-                        ${data.predicted_delivery_hours ? `<p><strong>AI ETA:</strong> ${data.predicted_delivery_hours.toFixed(2)} hours <span style="margin-left:6px;padding:2px 6px;background:#e8f5e9;border-radius:4px;border:1px solid #c8e6c9;font-size:0.85em;color:#2e7d32;">${data.prediction_source || 'heuristic'}</span></p>` : ''}
-                    </div>
-                `;
-            }
-            
-            resultBox.innerHTML = `
-                <h3>✓ Shipment Created Successfully!</h3>
-                <p><strong>Tracking Number:</strong> <span class="tracking-number">${data.tracking_number}</span></p>
-                ${routeHtml}
-                <p>You can track your shipment using this tracking number.</p>
-                <a href="/track?tracking=${data.tracking_number}" class="btn btn-primary">Track Now</a>
-            `;
+            resultBox.innerHTML = buildSuccessHtml(data);
             e.target.reset();
+            onReset();
         } else {
             resultBox.className = 'result-box error';
             resultBox.innerHTML = `<p>Error: ${data.error}</p>`;
@@ -235,5 +700,139 @@ document.getElementById('shipmentForm').addEventListener('submit', async (e) => 
         resultBox.innerHTML = `<p>Error: ${error.message}</p>`;
     }
 });
+
+// ── Success HTML ──────────────────────────────────────────────────────────────
+function buildSuccessHtml(data) {
+    let routeHtml = '';
+    if (data.route) {
+        routeHtml = `
+            <div class="route-result">
+                <h4>🗺️ Calculated Route:</h4>
+                <p><strong>Path:</strong> ${data.route.path.join(' → ')}</p>
+                <p><strong>Distance:</strong> ${data.route.distance_km} km</p>
+                <p><strong>Time:</strong> ${data.route.time_hours.toFixed(1)} h</p>
+                <p><strong>Cost:</strong> ${data.route.cost_eur.toFixed(2)} EUR</p>
+
+            </div>`;
+    }
+
+    let contextHtml = '';
+    const ctx = data.departure_context;
+    if (ctx) {
+        const tl       = ctx.traffic_load_factor || 1.0;
+        const tlClass  = tl > 1.8 ? 'ctx-high' : tl > 1.3 ? 'ctx-medium' : 'ctx-low';
+        const tlLabel  = tl > 1.8 ? '🔴 Heavy' : tl > 1.3 ? '🟡 Moderate' : '🟢 Light';
+        const nightPct = ((ctx.night_driving_ratio || 0) * 100).toFixed(0);
+        const rain     = ctx.weather?.max_precipitation_mm ?? '–';
+        const wind     = ctx.weather?.max_windspeed_kmh ?? '–';
+        const temp     = ctx.weather?.avg_temperature_c ?? '–';
+
+        const holidayCard = ctx.is_holiday
+            ? `<div class="ctx-card ctx-medium">
+                   <div class="ctx-title">Holiday</div>
+                   <div class="ctx-value">🎉 ${ctx.holiday_name}</div>
+               </div>`
+            : '';
+
+        contextHtml = `
+            <h4 style="margin-top:16px;">📊 Departure Context</h4>
+            <div class="context-cards">
+                <div class="ctx-card ${tlClass}">
+                    <div class="ctx-title">Traffic Load</div>
+                    <div class="ctx-value">${tlLabel} (×${tl.toFixed(2)})</div>
+                </div>
+                <div class="ctx-card ${nightPct > 30 ? 'ctx-medium' : 'ctx-low'}">
+                    <div class="ctx-title">Night Driving</div>
+                    <div class="ctx-value">${nightPct}%</div>
+                </div>
+                <div class="ctx-card ${rain > 10 ? 'ctx-high' : rain > 3 ? 'ctx-medium' : 'ctx-low'}">
+                    <div class="ctx-title">Max Precipitation</div>
+                    <div class="ctx-value">${rain} mm</div>
+                </div>
+                <div class="ctx-card ${wind > 60 ? 'ctx-high' : wind > 35 ? 'ctx-medium' : 'ctx-low'}">
+                    <div class="ctx-title">Max Wind</div>
+                    <div class="ctx-value">${wind} km/h</div>
+                </div>
+                <div class="ctx-card">
+                    <div class="ctx-title">Temperature</div>
+                    <div class="ctx-value">${temp}°C</div>
+                </div>
+                ${ctx.is_weekend
+                    ? `<div class="ctx-card ctx-medium">
+                           <div class="ctx-title">Day Type</div>
+                           <div class="ctx-value">📅 Weekend</div>
+                       </div>`
+                    : ''}
+                ${holidayCard}
+            </div>
+            <p style="font-size:.75rem;color:#94a3b8;margin-top:8px;">
+                Source: ${sourceLabel(ctx.weather_source)}
+            </p>`;
+    }
+
+    // ── ML Risk Prediction ────────────────────────────────────────────────────
+    let mlHtml = '';
+    const ml = data.ml_prediction;
+    if (ml && ml.risk_score !== null && ml.risk_score !== undefined) {
+        const lvl       = (ml.risk_level || 'MEDIUM').toLowerCase();
+        const pct       = ml.risk_pct ?? Math.round(ml.risk_score * 100);
+        const pred      = ml.prediction || 'UNKNOWN';
+        const factors   = ml.top_risk_factors || [];
+
+        const icons = { high: '🔴', medium: '🟡', low: '🟢' };
+        const labels = {
+            high:   'VISOK RIZIK KAŠNJENJA',
+            medium: 'UMJEREN RIZIK KAŠNJENJA',
+            low:    'NIZAK RIZIK KAŠNJENJA'
+        };
+        const subtitles = {
+            high:   'Preporučujemo razmotriti alternativni termin ili rutu.',
+            medium: 'Dostava može kasniti — pratite status.',
+            low:    'Uvjeti su povoljni za ovu dostavu.'
+        };
+
+        const factorsHtml = factors.length
+            ? `<div class="risk-factors">
+                   <strong style="font-size:.82rem;">Razlozi:</strong>
+                   <ul>${factors.map(f => `<li>${f}</li>`).join('')}</ul>
+               </div>`
+            : '';
+
+        mlHtml = `
+            <div class="risk-panel risk-${lvl}">
+                <div class="risk-header">
+                    <span style="font-size:1.8rem;">${icons[lvl] || '⚪'}</span>
+                    <div>
+                        <div class="risk-label risk-${lvl}">
+                            ${labels[lvl] || pred} — ${pct}%
+                        </div>
+                        <div class="risk-subtitle">${subtitles[lvl] || ''}</div>
+                    </div>
+                </div>
+                ${factorsHtml}
+            </div>`;
+    }
+
+    return `
+        <h3>✓ Shipment Created Successfully!</h3>
+        <p><strong>Tracking Number:</strong>
+           <span class="tracking-number">${data.tracking_number}</span></p>
+        ${mlHtml}
+        ${routeHtml}
+        ${contextHtml}
+        <p style="margin-top:14px;">
+            <a href="/track?tracking=${data.tracking_number}" class="btn btn-primary">Track Now</a>
+        </p>`;
+}
+
+function sourceLabel(src) {
+    const labels = {
+        openmeteo_forecast:          '📡 Live forecast (Open-Meteo)',
+        openmeteo_historical:        '📚 Historical data (Open-Meteo Archive)',
+        openmeteo_seasonal_estimate: '📊 Seasonal estimate',
+        manual:                      '✍️ Manually entered'
+    };
+    return labels[src] || src;
+}
 </script>
 {% endblock %}

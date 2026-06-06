@@ -35,6 +35,7 @@ services:
       - REINDEX_SECRET=dev-reindex-secret
       - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
+      - ML_SERVICE_URL=http://phase4_ml_service:5050
     volumes:
       - ../phase1/web:/app
       - ../phase4:/app/phase4:ro
@@ -63,6 +64,7 @@ services:
       - REINDEX_SECRET=dev-reindex-secret
       - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
+      - ML_SERVICE_URL=http://phase4_ml_service:5050
     volumes:
       - ../phase1/web:/app
       - ../phase4:/app/phase4:ro
@@ -91,6 +93,7 @@ services:
       - REINDEX_SECRET=dev-reindex-secret
       - KAFKA_BOOTSTRAP_SERVERS=phase3_redpanda:9092
       - KAFKA_LOCATION_TOPIC=vehicle-location-events
+      - ML_SERVICE_URL=http://phase4_ml_service:5050
     volumes:
       - ../phase1/web:/app
       - ../phase4:/app/phase4:ro
@@ -160,8 +163,8 @@ services:
     image: neo4j:5.15-community
     container_name: phase2_neo4j
     ports:
-      - "7474:7474"  # HTTP
-      - "7687:7687"  # Bolt
+      - "7474:7474"
+      - "7687:7687"
     environment:
       - NEO4J_AUTH=neo4j/deliverypass123
       - NEO4J_dbms_memory_pagecache_size=512M

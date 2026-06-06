@@ -1,0 +1,28 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    flask==3.0.0 \
+    numpy==1.26.4 \
+    scikit-learn==1.4.2 \
+    xgboost==2.0.3 \
+    requests==2.31.0 \
+    pymongo==4.6.1
+
+COPY hac_traffic.py    .
+COPY holidays.py       .
+COPY noise_models.py   .
+COPY weather_cache.py  .
+COPY ml_service.py     .
+
+COPY models/best_model.pkl    models/
+COPY models/scaler.pkl        models/
+COPY models/feature_names.json models/
+
+COPY data/holiday_cache/  data/holiday_cache/
+COPY data/weather_cache/  data/weather_cache/
+
+EXPOSE 5050
+
+CMD ["python3", "ml_service.py"]

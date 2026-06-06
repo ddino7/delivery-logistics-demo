@@ -1,9 +1,9 @@
 from flask import Flask, render_template, jsonify
 from config import Config
 from services.mongodb_service import MongoDBService
-from services.eta_service import EtaService
 from routes.shipments import shipments_bp
 from routes.tracking import tracking_bp
+from routes.weather import weather_bp
 try:
     from routes.location import location_bp
 except Exception as _:
@@ -22,17 +22,6 @@ app.config.from_object(Config)
 db_service = MongoDBService(app.config['MONGO_URI'], app.config['MONGO_DB_NAME'])
 app.db_service = db_service
 
-eta_model_path = os.getenv("ETA_MODEL_PATH", "/app/phase4/model.joblib")
-eta_stats_path = os.getenv("ETA_STATS_PATH", "/app/phase4/model.json")
-try:
-    app.eta_service = EtaService(model_path=eta_model_path, stats_path=eta_stats_path)
-    if app.eta_service.has_model:
-        print("✓ ETA model loaded (Phase 4)")
-    else:
-        print("ℹ Using heuristic ETA (Phase 4)")
-except Exception as e:
-    print(f"⚠ ETA service unavailable: {e}")
-
 opensearch_url = os.getenv("OPENSEARCH_URL", "http://phase3_opensearch:9200")
 try:
     from services.opensearch_service import OpenSearchService
@@ -49,14 +38,14 @@ vehicle_simulator = None
 try:
     from kafka import KafkaProducer
     from services.vehicle_simulator import VehicleSimulator
-    
+
     kafka_bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "redpanda:9092")
     kafka_producer = KafkaProducer(
         bootstrap_servers=kafka_bootstrap.split(","),
         acks=1,
         retries=3
     )
-    
+
     time_scale = int(os.getenv("VEHICLE_TIME_SCALE", "100"))
     vehicle_simulator = VehicleSimulator(kafka_producer, db_service, time_scale=time_scale)
     app.vehicle_simulator = vehicle_simulator
@@ -75,31 +64,34 @@ if os.getenv('NEO4J_URI'):
     try:
         from services.neo4j_service import Neo4jService
         from routes.network import network_bp
-        
+
         neo4j_service = Neo4jService(
             uri=os.getenv('NEO4J_URI'),
             user=os.getenv('NEO4J_USER', 'neo4j'),
             password=os.getenv('NEO4J_PASSWORD')
         )
         app.neo4j_service = neo4j_service
-        
+
         app.register_blueprint(network_bp, url_prefix='/api/network')
         print("✓ Neo4j integration enabled (Phase 2)")
     except Exception as e:
         print(f"⚠ Neo4j integration unavailable: {e}")
 
-app.register_blueprint(shipments_bp, url_prefix='/api/shipments')
-app.register_blueprint(tracking_bp, url_prefix='/api/tracking')
+app.register_blueprint(shipments_bp,  url_prefix='/api/shipments')
+app.register_blueprint(tracking_bp,   url_prefix='/api/tracking')
+app.register_blueprint(weather_bp,    url_prefix='/api/weather')
+
 if location_bp:
     app.register_blueprint(location_bp, url_prefix='/api/location')
 if simulator_bp:
     app.register_blueprint(simulator_bp, url_prefix='/api/simulator')
+
 try:
     from routes.search import search_bp
-
     app.register_blueprint(search_bp, url_prefix="/api/search")
 except Exception as e:
     print(f"⚠ Search blueprint not registered: {e}")
+
 
 @app.route('/')
 def index():
@@ -113,15 +105,15 @@ def health():
         db_status = 'healthy'
     except Exception as e:
         db_status = f'unhealthy: {str(e)}'
-    
+
     neo4j_status = 'not_configured'
     if neo4j_service:
         try:
             neo4j_service.get_network_statistics()
             neo4j_status = 'healthy'
-        except:
+        except Exception:
             neo4j_status = 'unhealthy'
-    
+
     opensearch_status = 'not_configured'
     try:
         if hasattr(app, 'opensearch'):
@@ -129,13 +121,6 @@ def health():
     except Exception:
         opensearch_status = 'unhealthy'
 
-    eta_status = 'not_configured'
-    try:
-        if hasattr(app, 'eta_service'):
-            eta_status = 'model' if app.eta_service.has_model else 'heuristic'
-    except Exception:
-        eta_status = 'unhealthy'
-    
     simulator_status = 'not_configured'
     try:
         if hasattr(app, 'vehicle_simulator') and app.vehicle_simulator:
@@ -143,17 +128,16 @@ def health():
             simulator_status = f'active ({len(active)} simulations)'
     except Exception:
         simulator_status = 'unhealthy'
-    
+
     return jsonify({
-        'status': 'healthy' if db_status == 'healthy' else 'unhealthy',
-        'server_id': app.config['SERVER_ID'],
-        'mongodb': db_status,
-        'neo4j': neo4j_status,
-        'opensearch': opensearch_status,
-        'eta': eta_status,
+        'status':           'healthy' if db_status == 'healthy' else 'unhealthy',
+        'server_id':        app.config['SERVER_ID'],
+        'mongodb':          db_status,
+        'neo4j':            neo4j_status,
+        'opensearch':       opensearch_status,
         'vehicle_simulator': simulator_status,
-        'phase': 2 if neo4j_service else 1,
-        'timestamp': time.time()
+        'phase':            2 if neo4j_service else 1,
+        'timestamp':        time.time()
     })
 
 @app.route('/create')
@@ -166,7 +150,6 @@ def track_page():
 
 @app.route('/shipments')
 def shipments_page():
-    """Page for viewing all shipments"""
     return render_template('shipments_list.html', server_id=app.config['SERVER_ID'])
 
 @app.route('/map')

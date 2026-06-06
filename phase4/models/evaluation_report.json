@@ -1,0 +1,78 @@
+{
+  "best_model": "Random Forest",
+  "final_test_metrics": {
+    "accuracy": 0.7492,
+    "f1": 0.7494396295106773,
+    "roc_auc": 0.8146839785284617
+  },
+  "all_models": {
+    "Naive Bayes": {
+      "cv_f1_mean": 0.7128198278935335,
+      "cv_f1_std": 0.004096580084572201,
+      "test_accuracy": 0.7307,
+      "test_f1": 0.708670395062457,
+      "test_roc_auc": 0.7747416509372327
+    },
+    "Logistic Regression": {
+      "cv_f1_mean": 0.7483572685707087,
+      "cv_f1_std": 0.001987695333387874,
+      "test_accuracy": 0.74645,
+      "test_f1": 0.7465206216436618,
+      "test_roc_auc": 0.8126479816241174
+    },
+    "Random Forest": {
+      "cv_f1_mean": 0.7527728470227746,
+      "cv_f1_std": 0.0024576199555359445,
+      "test_accuracy": 0.7492,
+      "test_f1": 0.7494396295106773,
+      "test_roc_auc": 0.8146839785284617
+    },
+    "XGBoost": {
+      "cv_f1_mean": 0.7457688243910335,
+      "cv_f1_std": 0.0026982417431778115,
+      "test_accuracy": 0.75005,
+      "test_f1": 0.7433946507131365,
+      "test_roc_auc": 0.8058013475455682
+    }
+  },
+  "n_features": 37,
+  "feature_names": [
+    "distance_km",
+    "expected_hours",
+    "num_stops",
+    "cost_per_km",
+    "weight_kg",
+    "num_items",
+    "max_precipitation_mm",
+    "max_windspeed_kmh",
+    "min_visibility_m",
+    "max_weather_code",
+    "bad_weather_nodes",
+    "avg_temperature_c",
+    "is_holiday",
+    "traffic_load_factor",
+    "night_driving_ratio",
+    "is_dark_departure",
+    "month",
+    "hour_of_day",
+    "is_weekend",
+    "road_type_coastal",
+    "road_type_highway",
+    "road_type_mixed",
+    "road_type_regional",
+    "holiday_name_Bogojavljenje, Sveta tri kralja",
+    "holiday_name_Bo\u017ei\u0107",
+    "holiday_name_Dan antifa\u0161isti\u010dke borbe",
+    "holiday_name_Dan dr\u017eavnosti",
+    "holiday_name_Dan pobjede i domovinske zahvalnosti i Dan hrvatskih branitelja",
+    "holiday_name_Dan sje\u0107anja na \u017ertve Domovinskog rata",
+    "holiday_name_Dan svih svetih",
+    "holiday_name_Me\u0111unarodni praznik rada",
+    "holiday_name_Nova Godina",
+    "holiday_name_Prvi dan po Bo\u017ei\u0107u, Sveti Stjepan, \u0160tefanje, Stipanje",
+    "holiday_name_Tijelovo",
+    "holiday_name_Uskrs i uskrsni ponedjeljak",
+    "holiday_name_Velika Gospa",
+    "holiday_name_none"
+  ]
+}

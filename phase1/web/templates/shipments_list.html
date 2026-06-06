@@ -3,6 +3,89 @@
 {% block title %}All Shipments{% endblock %}
 
 {% block content %}
+<style>
+/* ── ML Risk badges ─────────────────────────────────────────────────────── */
+.risk-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+.risk-inline.high   { background:#fff5f5; color:#c53030; border:1px solid #fc8181; }
+.risk-inline.medium { background:#fffbeb; color:#b7791f; border:1px solid #f6e05e; }
+.risk-inline.low    { background:#f0fdf4; color:#276749; border:1px solid #68d391; }
+
+.risk-factors-mini {
+    font-size: 0.75rem;
+    color: #718096;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+/* ── Departure info in card ─────────────────────────────────────────────── */
+.departure-info {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 0.83rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.departure-info span { color: #4a5568; }
+.departure-info strong { color: #2d3748; }
+
+/* ── Edit modal additions ───────────────────────────────────────────────── */
+.edit-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #718096;
+    margin: 16px 0 8px;
+    padding-top: 12px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.weather-manual-grid-sm {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+}
+.weather-manual-grid-sm .form-group { margin-bottom: 0; }
+
+.re-predict-btn {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 12px;
+    width: 100%;
+    font-size: 0.9rem;
+}
+.re-predict-btn:hover { opacity: 0.9; }
+
+.predict-result-box {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: none;
+}
+.predict-result-box.high   { background:#fff5f5; border:2px solid #fc8181; }
+.predict-result-box.medium { background:#fffbeb; border:2px solid #f6e05e; }
+.predict-result-box.low    { background:#f0fdf4; border:2px solid #68d391; }
+</style>
+
 <div class="page-header">
     <h1>📋 All Shipments</h1>
     <a href="/create" class="btn btn-primary">➕ Create New Shipment</a>
@@ -52,37 +135,43 @@
     <div class="modal-content modal-large">
         <h2>Edit Shipment</h2>
         <p><strong>Tracking:</strong> <span id="editModalTracking"></span></p>
-        
+
+        <!-- Sender -->
+        <div class="edit-section-title">Sender</div>
         <div class="form-row">
             <div class="form-group">
-                <label>Sender Name:</label>
+                <label>Name:</label>
                 <input type="text" id="editSenderName" />
             </div>
             <div class="form-group">
-                <label>Sender Phone:</label>
+                <label>Phone:</label>
                 <input type="text" id="editSenderPhone" />
             </div>
             <div class="form-group">
-                <label>Sender Email:</label>
+                <label>Email:</label>
                 <input type="email" id="editSenderEmail" />
             </div>
         </div>
-        
+
+        <!-- Receiver -->
+        <div class="edit-section-title">Receiver</div>
         <div class="form-row">
             <div class="form-group">
-                <label>Receiver Name:</label>
+                <label>Name:</label>
                 <input type="text" id="editReceiverName" />
             </div>
             <div class="form-group">
-                <label>Receiver Phone:</label>
+                <label>Phone:</label>
                 <input type="text" id="editReceiverPhone" />
             </div>
             <div class="form-group">
-                <label>Receiver Email:</label>
+                <label>Email:</label>
                 <input type="email" id="editReceiverEmail" />
             </div>
         </div>
-        
+
+        <!-- Shipment details -->
+        <div class="edit-section-title">Shipment Details</div>
         <div class="form-row">
             <div class="form-group">
                 <label>Weight (kg):</label>
@@ -97,8 +186,72 @@
                 <textarea id="editDeliveryAddress" rows="2"></textarea>
             </div>
         </div>
-        
-        <div class="modal-actions">
+
+        <!-- ── PHASE 4 — Departure & Risk Re-assessment ─────────────────── -->
+        <div class="edit-section-title">🗓️ Planned Departure — Risk Re-assessment</div>
+        <p style="font-size:.8rem;color:#718096;margin-bottom:10px;">
+            Change the departure date/time and re-run the risk model to see updated predictions.
+        </p>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Departure Date:</label>
+                <input type="date" id="editDepartureDate" />
+            </div>
+            <div class="form-group">
+                <label>Departure Hour:</label>
+                <select id="editDepartureHour">
+                    {% for h in range(5, 21) %}
+                    <option value="{{ '%02d'|format(h) }}">{{ '%02d'|format(h) }}:00</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <!-- Manual weather override -->
+        <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-size:.83rem;color:#4a5568;font-weight:600;">
+                ⚙️ Override Weather Conditions (optional)
+            </summary>
+            <div class="weather-manual-grid-sm" style="margin-top:10px;">
+                <div class="form-group">
+                    <label style="font-size:.78rem;">Precipitation (mm)</label>
+                    <input type="number" id="editPrecipitation" step="0.1" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label style="font-size:.78rem;">Wind Speed (km/h)</label>
+                    <input type="number" id="editWindspeed" step="1" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label style="font-size:.78rem;">Visibility (m)</label>
+                    <input type="number" id="editVisibility" step="100" min="0" value="10000">
+                </div>
+                <div class="form-group">
+                    <label style="font-size:.78rem;">Temperature (°C)</label>
+                    <input type="number" id="editTemperature" step="0.5" value="15">
+                </div>
+                <div class="form-group">
+                    <label style="font-size:.78rem;">Weather Code (WMO)</label>
+                    <input type="number" id="editWeatherCode" step="1" min="0" value="0"
+                           title="0=Clear, 61=Rain, 71=Snow, 95=Storm">
+                </div>
+                <div class="form-group">
+                    <label style="font-size:.78rem;">Bad Weather Nodes</label>
+                    <input type="number" id="editBadNodes" step="1" min="0" value="0">
+                </div>
+            </div>
+            <p style="font-size:.72rem;color:#a0aec0;margin-top:4px;">
+                Leave at 0 to use live forecast from Open-Meteo API.
+            </p>
+        </details>
+
+        <button class="re-predict-btn" onclick="rePredictRisk()">
+            🤖 Re-assess Delivery Risk
+        </button>
+
+        <div id="predictResultBox" class="predict-result-box"></div>
+
+        <div class="modal-actions" style="margin-top:16px;">
             <button class="btn btn-primary" onclick="saveEdit()">Save Changes</button>
             <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
         </div>
@@ -124,6 +277,37 @@ let allShipments = [];
 let currentTracking = '';
 let currentShipment = null;
 
+// ── Risk helpers ──────────────────────────────────────────────────────────────
+
+function riskBadgeHtml(ml) {
+    if (!ml || ml.risk_score === null || ml.risk_score === undefined) return '';
+    const lvl   = (ml.risk_level || 'medium').toLowerCase();
+    const pct   = ml.risk_pct ?? Math.round(ml.risk_score * 100);
+    const icons = { high: '🔴', medium: '🟡', low: '🟢' };
+    const factorsHtml = (ml.top_risk_factors || []).length
+        ? `<div class="risk-factors-mini">⚠ ${ml.top_risk_factors.slice(0,2).join(' · ')}</div>`
+        : '';
+    return `<span class="risk-inline ${lvl}">${icons[lvl]||''} ${pct}% risk</span>${factorsHtml}`;
+}
+
+function departureBadgeHtml(s) {
+    if (!s.planned_departure_at) return '';
+    const dep  = new Date(s.planned_departure_at);
+    const isHol = s.is_holiday ? `🎉 ${s.holiday_name}` : '';
+    const isWk  = s.is_weekend ? '📅 Weekend' : '';
+    const tl    = s.traffic_load_factor
+        ? `🚗 Traffic ×${parseFloat(s.traffic_load_factor).toFixed(2)}`
+        : '';
+    const tags  = [isHol, isWk, tl].filter(Boolean).join(' · ');
+    return `
+        <div class="departure-info">
+            <span>🗓️ <strong>Departure:</strong> ${dep.toLocaleString()}</span>
+            ${tags ? `<span style="color:#94a3b8;">${tags}</span>` : ''}
+        </div>`;
+}
+
+// ── Load & display ────────────────────────────────────────────────────────────
+
 async function loadShipments() {
     try {
         const response = await fetch('/api/shipments/?limit=100');
@@ -131,51 +315,59 @@ async function loadShipments() {
         allShipments = data.shipments;
         displayShipments(allShipments);
     } catch (error) {
-        document.getElementById('shipmentsContainer').innerHTML = 
+        document.getElementById('shipmentsContainer').innerHTML =
             `<p class="error">Error: ${error.message}</p>`;
     }
 }
 
 function displayShipments(shipments) {
     const container = document.getElementById('shipmentsContainer');
-    
     if (shipments.length === 0) {
         container.innerHTML = '<p>No shipments found.</p>';
         return;
     }
-    
+
     const html = shipments.map(s => `
         <div class="shipment-card">
             <div class="shipment-header">
-                <strong>${s.tracking_number}</strong>
-                <span class="status-badge status-${s.status.toLowerCase().replace('_', '-')}">${s.status.replace('_', ' ')}</span>
+                <div>
+                    <strong>${s.tracking_number}</strong>
+                    ${riskBadgeHtml(s.ml_prediction)}
+                </div>
+                <span class="status-badge status-${s.status.toLowerCase().replace('_', '-')}">
+                    ${s.status.replace('_', ' ')}
+                </span>
             </div>
             <div class="shipment-details">
                 <p><strong>From:</strong> ${s.sender.name} (${s.pickup_address})</p>
                 <p><strong>To:</strong> ${s.receiver.name} (${s.delivery_address})</p>
-                <p><strong>Weight:</strong> ${s.weight} kg | <strong>Products:</strong> ${s.products ? s.products.length : 0}</p>
-                ${s.predicted_delivery_hours ? `
-                    <p style="margin:6px 0;"><strong>AI ETA:</strong> ${s.predicted_delivery_hours.toFixed(2)} h <span style="margin-left:6px;padding:2px 6px;background:#e8f5e9;border-radius:4px;border:1px solid #c8e6c9;font-size:0.85em;color:#2e7d32;">${s.prediction_source || 'heuristic'}</span></p>
-                ` : ''}
+                <p><strong>Weight:</strong> ${s.weight} kg |
+                   <strong>Products:</strong> ${s.products ? s.products.length : 0}</p>
+                ${departureBadgeHtml(s)}
                 ${s.route ? `
                     <div class="route-info">
-                        <p><strong>🗺️ Route:</strong> ${s.route.locations.map(l => l.city).join(' → ')}</p>
-                        <p><strong>📏</strong> ${s.route.total_distance_km} km | 
-                           <strong>⏱️</strong> ${s.route.total_time_hours.toFixed(1)} h | 
+                        <p><strong>🗺️ Route:</strong>
+                           ${s.route.locations.map(l => l.city).join(' → ')}</p>
+                        <p><strong>📏</strong> ${s.route.total_distance_km} km |
+                           <strong>⏱️</strong> ${s.route.total_time_hours.toFixed(1)} h |
                            <strong>💰</strong> ${s.route.total_cost_eur.toFixed(2)} EUR</p>
                     </div>
                 ` : '<p class="warning">⚠️ No route calculated</p>'}
                 <p><strong>Created:</strong> ${new Date(s.created_at).toLocaleString()}</p>
             </div>
             <div class="shipment-actions">
-                <button class="btn btn-primary btn-sm" onclick="trackShipment('${s.tracking_number}')">📍 Track</button>
-                <button class="btn btn-secondary btn-sm" onclick="openStatusModal('${s.tracking_number}')">🔄 Status</button>
-                <button class="btn btn-info btn-sm" onclick="openEditModal('${s.tracking_number}')">✏️ Edit</button>
-                <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${s.tracking_number}')">🗑️ Delete</button>
+                <button class="btn btn-primary btn-sm"
+                        onclick="trackShipment('${s.tracking_number}')">📍 Track</button>
+                <button class="btn btn-secondary btn-sm"
+                        onclick="openStatusModal('${s.tracking_number}')">🔄 Status</button>
+                <button class="btn btn-info btn-sm"
+                        onclick="openEditModal('${s.tracking_number}')">✏️ Edit</button>
+                <button class="btn btn-danger btn-sm"
+                        onclick="openDeleteModal('${s.tracking_number}')">🗑️ Delete</button>
             </div>
         </div>
     `).join('');
-    
+
     container.innerHTML = html;
 }
 
@@ -183,7 +375,8 @@ function trackShipment(tracking) {
     window.location.href = `/track?tracking=${tracking}`;
 }
 
-// ========== STATUS UPDATE ==========
+// ── Status update ─────────────────────────────────────────────────────────────
+
 function openStatusModal(tracking) {
     currentTracking = tracking;
     document.getElementById('modalTracking').textContent = tracking;
@@ -192,92 +385,236 @@ function openStatusModal(tracking) {
 
 async function updateStatus() {
     const newStatus = document.getElementById('newStatus').value;
-    const note = document.getElementById('statusNote').value;
-    
+    const note      = document.getElementById('statusNote').value;
     try {
-        const response = await fetch(`/api/shipments/${currentTracking}/status`, {
+        const resp = await fetch(`/api/shipments/${currentTracking}/status`, {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({status: newStatus, note: note})
+            body: JSON.stringify({status: newStatus, note})
         });
-        
-        if (response.ok) {
+        if (resp.ok) {
             alert('✓ Status updated successfully!');
             closeModal('statusModal');
             loadShipments();
         } else {
-            const data = await response.json();
-            alert('Error: ' + data.error);
+            const d = await resp.json();
+            alert('Error: ' + d.error);
         }
-    } catch (error) {
-        alert('Error: ' + error.message);
-    }
+    } catch (e) { alert('Error: ' + e.message); }
 }
 
-// ========== EDIT SHIPMENT ==========
+// ── Edit shipment ─────────────────────────────────────────────────────────────
+
 async function openEditModal(tracking) {
     currentTracking = tracking;
-    
     try {
-        const response = await fetch(`/api/shipments/${tracking}`);
-        const data = await response.json();
+        const resp = await fetch(`/api/shipments/${tracking}`);
+        const data = await resp.json();
         currentShipment = data;
-        
+
         document.getElementById('editModalTracking').textContent = tracking;
-        document.getElementById('editSenderName').value = data.sender.name || '';
-        document.getElementById('editSenderPhone').value = data.sender.phone || '';
-        document.getElementById('editSenderEmail').value = data.sender.email || '';
-        document.getElementById('editReceiverName').value = data.receiver.name || '';
-        document.getElementById('editReceiverPhone').value = data.receiver.phone || '';
-        document.getElementById('editReceiverEmail').value = data.receiver.email || '';
-        document.getElementById('editWeight').value = data.weight;
-        document.getElementById('editPickupAddress').value = data.pickup_address;
+        document.getElementById('editSenderName').value    = data.sender?.name    || '';
+        document.getElementById('editSenderPhone').value   = data.sender?.phone   || '';
+        document.getElementById('editSenderEmail').value   = data.sender?.email   || '';
+        document.getElementById('editReceiverName').value  = data.receiver?.name  || '';
+        document.getElementById('editReceiverPhone').value = data.receiver?.phone || '';
+        document.getElementById('editReceiverEmail').value = data.receiver?.email || '';
+        document.getElementById('editWeight').value        = data.weight;
+        document.getElementById('editPickupAddress').value  = data.pickup_address;
         document.getElementById('editDeliveryAddress').value = data.delivery_address;
-        
+
+        // Pre-fill departure date/hour from existing document
+        if (data.planned_departure_at) {
+            const dep = new Date(data.planned_departure_at);
+            document.getElementById('editDepartureDate').value =
+                dep.toISOString().split('T')[0];
+            const h = dep.getHours().toString().padStart(2, '0');
+            document.getElementById('editDepartureHour').value = h;
+        } else {
+            document.getElementById('editDepartureDate').value =
+                new Date().toISOString().split('T')[0];
+        }
+
+        // Pre-fill weather if manual
+        const w = data.weather_at_departure || {};
+        if (w.source === 'manual') {
+            document.getElementById('editPrecipitation').value = w.max_precipitation_mm || 0;
+            document.getElementById('editWindspeed').value     = w.max_windspeed_kmh    || 0;
+            document.getElementById('editVisibility').value    = w.min_visibility_m     || 10000;
+            document.getElementById('editTemperature').value   = w.avg_temperature_c    || 15;
+            document.getElementById('editWeatherCode').value   = w.max_weather_code     || 0;
+            document.getElementById('editBadNodes').value      = w.bad_weather_nodes    || 0;
+        }
+
+        // Clear previous prediction result
+        const box = document.getElementById('predictResultBox');
+        box.style.display = 'none';
+        box.innerHTML = '';
+
         document.getElementById('editModal').style.display = 'flex';
-    } catch (error) {
-        alert('Error loading shipment: ' + error.message);
-    }
+    } catch (e) { alert('Error loading shipment: ' + e.message); }
 }
 
 async function saveEdit() {
+    const dateStr = document.getElementById('editDepartureDate').value;
+    const hourStr = document.getElementById('editDepartureHour').value;
+    const plannedDeparture = dateStr && hourStr ? `${dateStr}T${hourStr}:00` : null;
+
+    // Collect manual weather if set
+    const precip = parseFloat(document.getElementById('editPrecipitation').value) || 0;
+    const wind   = parseFloat(document.getElementById('editWindspeed').value)     || 0;
+    const vis    = parseFloat(document.getElementById('editVisibility').value)    || 10000;
+    const temp   = parseFloat(document.getElementById('editTemperature').value)   || 15;
+    const code   = parseInt(document.getElementById('editWeatherCode').value)     || 0;
+    const nodes  = parseInt(document.getElementById('editBadNodes').value)        || 0;
+    const hasOverride = precip > 0 || wind > 0 || code > 0 || nodes > 0 || temp !== 15;
+
+    // Read current predict result box if available
+    const predictBox = document.getElementById('predictResultBox');
+    const hasPrediction = predictBox && predictBox.style.display !== 'none'
+                          && predictBox.innerHTML.trim() !== '';
+
     const updatedData = {
         sender: {
-            name: document.getElementById('editSenderName').value,
+            name:  document.getElementById('editSenderName').value,
             phone: document.getElementById('editSenderPhone').value,
-            email: document.getElementById('editSenderEmail').value
+            email: document.getElementById('editSenderEmail').value,
         },
         receiver: {
-            name: document.getElementById('editReceiverName').value,
+            name:  document.getElementById('editReceiverName').value,
             phone: document.getElementById('editReceiverPhone').value,
-            email: document.getElementById('editReceiverEmail').value
+            email: document.getElementById('editReceiverEmail').value,
         },
-        weight: parseFloat(document.getElementById('editWeight').value),
-        pickup_address: document.getElementById('editPickupAddress').value,
-        delivery_address: document.getElementById('editDeliveryAddress').value
+        weight:             parseFloat(document.getElementById('editWeight').value),
+        pickup_address:     document.getElementById('editPickupAddress').value,
+        delivery_address:   document.getElementById('editDeliveryAddress').value,
+        planned_departure:  plannedDeparture,
+        manual_weather:     hasOverride ? {
+            precipitation_mm:  precip,
+            windspeed_kmh:     wind,
+            visibility_m:      vis,
+            temperature_c:     temp,
+            weather_code:      code,
+            bad_weather_nodes: nodes,
+        } : null,
     };
-    
+
     try {
-        const response = await fetch(`/api/shipments/${currentTracking}`, {
+        const resp = await fetch(`/api/shipments/${currentTracking}`, {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(updatedData)
         });
-        
-        if (response.ok) {
+        if (resp.ok) {
             alert('✓ Shipment updated successfully!');
             closeModal('editModal');
             loadShipments();
         } else {
-            const data = await response.json();
-            alert('Error: ' + data.error);
+            const d = await resp.json();
+            alert('Error: ' + d.error);
         }
-    } catch (error) {
-        alert('Error: ' + error.message);
+    } catch (e) { alert('Error: ' + e.message); }
+}
+
+// ── Re-predict risk ────────────────────────────────────────────────────────────
+
+async function rePredictRisk() {
+    if (!currentShipment) return;
+
+    const dateStr = document.getElementById('editDepartureDate').value;
+    const hourStr = document.getElementById('editDepartureHour').value;
+    if (!dateStr) { alert('Please select a departure date.'); return; }
+
+    const plannedDeparture = `${dateStr}T${hourStr}:00`;
+
+    // Check if manual weather override is set
+    const precip = parseFloat(document.getElementById('editPrecipitation').value) || 0;
+    const wind   = parseFloat(document.getElementById('editWindspeed').value)     || 0;
+    const vis    = parseFloat(document.getElementById('editVisibility').value)    || 10000;
+    const temp   = parseFloat(document.getElementById('editTemperature').value)   || 15;
+    const code   = parseInt(document.getElementById('editWeatherCode').value)     || 0;
+    const nodes  = parseInt(document.getElementById('editBadNodes').value)        || 0;
+
+    const hasOverride = precip > 0 || wind > 0 || code > 0 || nodes > 0 || temp !== 15;
+
+    const route = currentShipment.route || {};
+    const locs  = (route.locations || []).map(l => l.city).filter(Boolean);
+
+    const payload = {
+        origin:            locs[0]  || currentShipment.pickup_city  || '',
+        destination:       locs[locs.length - 1] || currentShipment.delivery_city || '',
+        planned_departure: plannedDeparture,
+        route_locations:   locs,
+        shipment: {
+            distance_km:    route.total_distance_km   || 0,
+            expected_hours: route.total_time_hours    || 0,
+            num_stops:      route.num_stops           || 2,
+            road_type:      route.road_type_dominant  || 'highway',
+            cost_per_km:    1.3,
+            weight_kg:      parseFloat(document.getElementById('editWeight').value) || currentShipment.weight || 50,
+            num_items:      (currentShipment.products || []).reduce((s, p) => s + (p.quantity || 1), 0) || 1,
+        },
+        manual_weather: hasOverride ? {
+            precipitation_mm:  precip,
+            windspeed_kmh:     wind,
+            visibility_m:      vis,
+            temperature_c:     temp,
+            weather_code:      code,
+            bad_weather_nodes: nodes,
+        } : null,
+    };
+
+    const box = document.getElementById('predictResultBox');
+    box.className = 'predict-result-box';
+    box.style.display = 'block';
+    box.innerHTML = '<em>⏳ Assessing risk…</em>';
+
+    try {
+        const resp = await fetch('/api/shipments/ml-predict', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        if (!resp.ok) throw new Error('ML service error');
+        const result = await resp.json();
+
+        const lvl    = (result.risk_level || 'medium').toLowerCase();
+        const pct    = result.risk_pct ?? Math.round((result.risk_score || 0) * 100);
+        const icons  = { high: '🔴', medium: '🟡', low: '🟢' };
+        const labels = {
+            high:   'VISOK RIZIK KAŠNJENJA',
+            medium: 'UMJEREN RIZIK KAŠNJENJA',
+            low:    'NIZAK RIZIK KAŠNJENJA'
+        };
+        const factorsHtml = (result.top_risk_factors || []).length
+            ? `<ul style="margin:6px 0 0 16px;font-size:.82rem;color:#4a5568;">
+                   ${result.top_risk_factors.map(f => `<li>${f}</li>`).join('')}
+               </ul>`
+            : '';
+
+        const holiday = result.context?.is_holiday
+            ? `<p style="font-size:.8rem;margin-top:4px;">🎉 ${result.context.holiday_name}</p>`
+            : '';
+        const tl = result.context?.traffic_load_factor
+            ? `<p style="font-size:.8rem;">🚗 Traffic load: ×${parseFloat(result.context.traffic_load_factor).toFixed(2)}</p>`
+            : '';
+
+        box.className = `predict-result-box ${lvl}`;
+        box.innerHTML = `
+            <div style="font-weight:700;font-size:1rem;">
+                ${icons[lvl]} ${labels[lvl]} — ${pct}%
+            </div>
+            ${holiday}${tl}
+            ${factorsHtml}
+        `;
+    } catch (e) {
+        box.className = 'predict-result-box medium';
+        box.innerHTML = `<em>⚠️ Could not reach ML service: ${e.message}</em>`;
     }
 }
 
-// ========== DELETE SHIPMENT ==========
+// ── Delete ────────────────────────────────────────────────────────────────────
+
 function openDeleteModal(tracking) {
     currentTracking = tracking;
     document.getElementById('deleteModalTracking').textContent = tracking;
@@ -286,47 +623,36 @@ function openDeleteModal(tracking) {
 
 async function confirmDelete() {
     try {
-        const response = await fetch(`/api/shipments/${currentTracking}`, {
-            method: 'DELETE'
-        });
-        
-        if (response.ok) {
+        const resp = await fetch(`/api/shipments/${currentTracking}`, { method: 'DELETE' });
+        if (resp.ok) {
             alert('✓ Shipment deleted successfully!');
             closeModal('deleteModal');
             loadShipments();
         } else {
-            const data = await response.json();
-            alert('Error: ' + data.error);
+            const d = await resp.json();
+            alert('Error: ' + d.error);
         }
-    } catch (error) {
-        alert('Error: ' + error.message);
-    }
+    } catch (e) { alert('Error: ' + e.message); }
 }
 
-// ========== MODAL HELPERS ==========
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-// ========== SEARCH & FILTER ==========
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
 document.getElementById('searchBox').addEventListener('input', filterShipments);
 document.getElementById('statusFilter').addEventListener('change', filterShipments);
 
 function filterShipments() {
     const search = document.getElementById('searchBox').value.toLowerCase();
     const status = document.getElementById('statusFilter').value;
-    
     const filtered = allShipments.filter(s => {
-        const matchesSearch = !search || 
+        const matchSearch = !search ||
             s.tracking_number.toLowerCase().includes(search) ||
-            (s.sender.name || '').toLowerCase().includes(search) ||
-            (s.receiver.name || '').toLowerCase().includes(search);
-        
-        const matchesStatus = !status || s.status === status;
-        
-        return matchesSearch && matchesStatus;
+            (s.sender?.name  || '').toLowerCase().includes(search) ||
+            (s.receiver?.name|| '').toLowerCase().includes(search);
+        const matchStatus = !status || s.status === status;
+        return matchSearch && matchStatus;
     });
-    
     displayShipments(filtered);
 }
 
@@ -334,163 +660,33 @@ loadShipments();
 </script>
 
 <style>
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-
-.search-section {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.search-section input, .search-section select {
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 1rem;
-}
-
-.search-section input { flex: 1; }
-
-.shipment-card {
-    background: white;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.shipment-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #ecf0f1;
-}
-
-.status-badge {
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 0.85rem;
-    font-weight: bold;
-}
-
-.status-created { background-color: #3498db; color: white; }
-.status-in-warehouse { background-color: #f39c12; color: white; }
-.status-in-transit { background-color: #9b59b6; color: white; }
-.status-delivered { background-color: #27ae60; color: white; }
-
-.route-info {
-    background-color: #e8f5e9;
-    padding: 10px;
-    border-radius: 5px;
-    margin: 10px 0;
-    border-left: 4px solid #27ae60;
-}
-
-.warning {
-    color: #f39c12;
-    font-style: italic;
-}
-
-.shipment-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #ecf0f1;
-    flex-wrap: wrap;
-}
-
-.btn-sm {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-}
-
-.btn-info {
-    background-color: #3498db;
-    color: white;
-}
-
-.btn-info:hover {
-    background-color: #2980b9;
-}
-
-.btn-danger {
-    background-color: #e74c3c;
-    color: white;
-}
-
-.btn-danger:hover {
-    background-color: #c0392b;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: 10px;
-    max-width: 500px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-}
-
-.modal-large {
-    max-width: 800px;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 1rem;
-}
-
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-.form-group input, .form-group select, .form-group textarea {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-}
-
-.form-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.warning-text {
-    color: #e74c3c;
-    font-weight: bold;
-    margin: 1rem 0;
-}
+.page-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; }
+.search-section { display:flex; gap:10px; margin-bottom:20px; }
+.search-section input, .search-section select { padding:10px; border:1px solid #ddd; border-radius:5px; font-size:1rem; }
+.search-section input { flex:1; }
+.shipment-card { background:white; padding:1.5rem; margin-bottom:1rem; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+.shipment-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; padding-bottom:.5rem; border-bottom:2px solid #ecf0f1; }
+.status-badge { padding:5px 10px; border-radius:5px; font-size:.85rem; font-weight:bold; white-space:nowrap; }
+.status-created { background:#3498db; color:white; }
+.status-in-warehouse { background:#f39c12; color:white; }
+.status-in-transit { background:#9b59b6; color:white; }
+.status-delivered { background:#27ae60; color:white; }
+.route-info { background:#e8f5e9; padding:10px; border-radius:5px; margin:10px 0; border-left:4px solid #27ae60; }
+.warning { color:#f39c12; font-style:italic; }
+.shipment-actions { display:flex; gap:10px; margin-top:1rem; padding-top:1rem; border-top:1px solid #ecf0f1; flex-wrap:wrap; }
+.btn-sm { padding:8px 12px; font-size:.9rem; }
+.btn-info { background:#3498db; color:white; }
+.btn-info:hover { background:#2980b9; }
+.btn-danger { background:#e74c3c; color:white; }
+.btn-danger:hover { background:#c0392b; }
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:1000; }
+.modal-content { background:white; padding:2rem; border-radius:10px; max-width:500px; width:90%; max-height:85vh; overflow-y:auto; }
+.modal-large { max-width:860px; }
+.modal-actions { display:flex; gap:10px; margin-top:1rem; }
+.form-group { margin-bottom:1rem; }
+.form-group label { display:block; margin-bottom:5px; font-weight:bold; }
+.form-group input, .form-group select, .form-group textarea { width:100%; padding:8px; border:1px solid #ddd; border-radius:5px; }
+.form-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:1rem; margin-bottom:1rem; }
+.warning-text { color:#e74c3c; font-weight:bold; margin:1rem 0; }
 </style>
 {% endblock %}

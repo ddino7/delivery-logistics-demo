@@ -3,6 +3,79 @@
 {% block title %}Track Shipment - Delivery System{% endblock %}
 
 {% block content %}
+<style>
+/* ── ML Risk Panel — tracking page ─────────────────────────────────────── */
+.risk-panel-track {
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    border: 2px solid;
+}
+.risk-panel-track.high   { background:#fff5f5; border-color:#fc8181; }
+.risk-panel-track.medium { background:#fffbeb; border-color:#f6e05e; }
+.risk-panel-track.low    { background:#f0fdf4; border-color:#68d391; }
+
+.risk-track-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.risk-track-icon { font-size: 2rem; }
+.risk-track-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+.risk-track-title.high   { color: #c53030; }
+.risk-track-title.medium { color: #b7791f; }
+.risk-track-title.low    { color: #276749; }
+.risk-track-sub {
+    font-size: 0.8rem;
+    color: #718096;
+    margin-top: 2px;
+}
+
+.risk-track-body {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    font-size: 0.83rem;
+}
+.risk-track-body .ctx-item { color: #4a5568; }
+.risk-track-body .ctx-item strong { color: #2d3748; }
+
+.risk-factors-track {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.08);
+    font-size: 0.82rem;
+    color: #4a5568;
+}
+.risk-factors-track ul {
+    margin: 4px 0 0 16px;
+    padding: 0;
+}
+.risk-factors-track ul li { margin-bottom: 2px; }
+
+/* ── Departure info ─────────────────────────────────────────────────────── */
+.departure-track {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+}
+.departure-track .dt-item { color: #4a5568; }
+.departure-track .dt-item strong { color: #1a202c; }
+</style>
+
 <div class="page-header">
     <h1>🔍 Track Your Shipment</h1>
 </div>
@@ -10,11 +83,11 @@
 <div class="tracking-search">
     <form id="trackingForm">
         <div class="search-box">
-            <input 
-                type="text" 
-                id="tracking_number" 
-                name="tracking_number" 
-                placeholder="Enter tracking number (e.g., DLV123456789)" 
+            <input
+                type="text"
+                id="tracking_number"
+                name="tracking_number"
+                placeholder="Enter tracking number (e.g., DLV123456789)"
                 required
             >
             <button type="submit" class="btn btn-primary">Track</button>
@@ -38,7 +111,7 @@
 <script>
 // Auto-fill tracking number from URL
 window.addEventListener('DOMContentLoaded', () => {
-    const params = new URLSearchParams(window.location.search);
+    const params   = new URLSearchParams(window.location.search);
     const tracking = params.get('tracking');
     if (tracking) {
         document.getElementById('tracking_number').value = tracking;
@@ -46,50 +119,126 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ── Risk panel HTML ───────────────────────────────────────────────────────────
+
+function buildRiskPanelHtml(ml, ctx) {
+    if (!ml || ml.risk_score === null || ml.risk_score === undefined) return '';
+
+    const lvl  = (ml.risk_level || 'medium').toLowerCase();
+    const pct  = ml.risk_pct ?? Math.round(ml.risk_score * 100);
+    const icons  = { high: '🔴', medium: '🟡', low: '🟢' };
+    const labels = {
+        high:   'VISOK RIZIK KAŠNJENJA',
+        medium: 'UMJEREN RIZIK KAŠNJENJA',
+        low:    'NIZAK RIZIK KAŠNJENJA',
+    };
+    const subtitles = {
+        high:   'Preporučujemo pratiti status dostave.',
+        medium: 'Postoji umjeren rizik kašnjenja.',
+        low:    'Uvjeti su povoljni za ovu dostavu.',
+    };
+
+    // Context items
+    const ctxItems = [];
+    if (ctx) {
+        if (ctx.is_holiday && ctx.holiday_name)
+            ctxItems.push(`🎉 <strong>${ctx.holiday_name}</strong>`);
+        if (ctx.traffic_load_factor)
+            ctxItems.push(`🚗 Traffic load: <strong>×${parseFloat(ctx.traffic_load_factor).toFixed(2)}</strong>`);
+        if (ctx.night_driving_ratio > 0.1)
+            ctxItems.push(`🌙 Night driving: <strong>${Math.round(ctx.night_driving_ratio * 100)}%</strong>`);
+        if (ctx.weather_at_departure?.max_precipitation_mm > 2)
+            ctxItems.push(`🌧️ Precipitation: <strong>${ctx.weather_at_departure.max_precipitation_mm}mm</strong>`);
+        if (ctx.weather_at_departure?.max_windspeed_kmh > 30)
+            ctxItems.push(`💨 Wind: <strong>${ctx.weather_at_departure.max_windspeed_kmh} km/h</strong>`);
+        if (ctx.is_weekend && !ctx.is_holiday)
+            ctxItems.push(`📅 <strong>Weekend departure</strong>`);
+    }
+
+    const ctxHtml = ctxItems.length
+        ? `<div class="risk-track-body">${ctxItems.map(i =>
+              `<div class="ctx-item">${i}</div>`).join('')}</div>`
+        : '';
+
+    const factorsHtml = (ml.top_risk_factors || []).length
+        ? `<div class="risk-factors-track">
+               <strong>Razlozi rizika:</strong>
+               <ul>${ml.top_risk_factors.map(f => `<li>${f}</li>`).join('')}</ul>
+           </div>`
+        : '';
+
+    return `
+        <div class="risk-panel-track ${lvl}">
+            <div class="risk-track-header">
+                <span class="risk-track-icon">${icons[lvl]}</span>
+                <div>
+                    <div class="risk-track-title ${lvl}">${labels[lvl]} — ${pct}%</div>
+                    <div class="risk-track-sub">${subtitles[lvl]}</div>
+                </div>
+            </div>
+            ${ctxHtml}
+            ${factorsHtml}
+        </div>`;
+}
+
+// ── Departure info HTML ───────────────────────────────────────────────────────
+
+function buildDepartureHtml(data) {
+    if (!data.planned_departure_at) return '';
+    const dep  = new Date(data.planned_departure_at);
+    const items = [`🗓️ <strong>Planned Departure:</strong> ${dep.toLocaleString()}`];
+    if (data.is_holiday && data.holiday_name)
+        items.push(`🎉 <strong>${data.holiday_name}</strong>`);
+    else if (data.is_weekend)
+        items.push(`📅 Weekend`);
+    if (data.traffic_load_factor)
+        items.push(`🚗 Traffic ×${parseFloat(data.traffic_load_factor).toFixed(2)}`);
+    return `<div class="departure-track">
+        ${items.map(i => `<span class="dt-item">${i}</span>`).join('')}
+    </div>`;
+}
+
+// ── Main tracking form ────────────────────────────────────────────────────────
+
 document.getElementById('trackingForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const trackingNumber = document.getElementById('tracking_number').value.trim();
-    const resultDiv = document.getElementById('tracking-result');
-    
+    const resultDiv      = document.getElementById('tracking-result');
+
     resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<p>Searching for shipment...</p>';
-    
+    resultDiv.innerHTML     = '<p>Searching for shipment...</p>';
+
     try {
         const response = await fetch(`/api/tracking/${trackingNumber}`);
-        const data = await response.json();
-        
+        const data     = await response.json();
+
         if (response.ok && data.found) {
             const statusColors = {
-                'CREATED': '#3498db',
+                'CREATED':      '#3498db',
                 'IN_WAREHOUSE': '#f39c12',
-                'IN_TRANSIT': '#9b59b6',
-                'DELIVERED': '#27ae60'
+                'IN_TRANSIT':   '#9b59b6',
+                'DELIVERED':    '#27ae60'
             };
-            
             const statusIcons = {
-                'CREATED': '📝',
+                'CREATED':      '📝',
                 'IN_WAREHOUSE': '🏢',
-                'IN_TRANSIT': '🚚',
-                'DELIVERED': '✅'
+                'IN_TRANSIT':   '🚚',
+                'DELIVERED':    '✅'
             };
-            
-            console.log('Shipment data:', data); // Debug
-            
+
+            // ML risk panel
+            const mlHtml = buildRiskPanelHtml(data.ml_prediction, data);
+
+            // Departure info
+            const departureHtml = buildDepartureHtml(data);
+
             // Route HTML
             let routeHtml = '';
-            const etaBadge = data.predicted_delivery_hours ? `
-                <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:8px;padding:10px 12px;margin-bottom:12px;display:inline-block;">
-                    <p style="margin:0;font-weight:bold;color:#2e7d32;">AI ETA (${data.prediction_source || 'heuristic'}):</p>
-                    <p style="margin:0;font-size:1.1em;color:#1b5e20;">${data.predicted_delivery_hours.toFixed(2)} hours</p>
-                </div>
-            ` : '';
-
             if (data.route && data.route.locations) {
                 routeHtml = `
                     <div class="route-details">
                         <h3>🗺️ Delivery Route</h3>
-                        ${etaBadge}
                         <div class="route-path">
                             <p><strong>Optimization:</strong> ${data.optimize_by || 'time'}</p>
                             <p><strong>Path:</strong></p>
@@ -102,8 +251,8 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                                         </div>
                                         ${i < data.route.routes.length ? `
                                             <div class="route-segment">
-                                                → ${data.route.routes[i].distance} km • 
-                                                ${data.route.routes[i].time.toFixed(1)} hours • 
+                                                → ${data.route.routes[i].distance} km •
+                                                ${data.route.routes[i].time.toFixed(1)} hours •
                                                 ${data.route.routes[i].road_type}
                                             </div>
                                         ` : ''}
@@ -134,26 +283,28 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                                 </div>
                             </div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             } else {
-                routeHtml = '<div class="warning-box"><p>⚠️ No route information available for this shipment.</p></div>';
+                routeHtml = '<div class="warning-box"><p>⚠️ No route information available.</p></div>';
             }
-            
+
             resultDiv.className = 'tracking-result found';
             resultDiv.innerHTML = `
                 <div class="shipment-header">
                     <h2>Shipment Found!</h2>
                     <div class="tracking-number-display">${data.tracking_number}</div>
                 </div>
-                
-                <div class="current-status" style="background-color: ${statusColors[data.status]}">
-                    <span class="status-icon">${statusIcons[data.status]}</span>
+
+                <div class="current-status"
+                     style="background-color:${statusColors[data.status] || '#95a5a6'}">
+                    <span class="status-icon">${statusIcons[data.status] || '📦'}</span>
                     <span class="status-text">${data.status.replace('_', ' ')}</span>
                 </div>
-                
+
+                ${mlHtml}
+                ${departureHtml}
                 ${routeHtml}
-                
+
                 <div class="shipment-details">
                     <div class="detail-section">
                         <h3>Sender</h3>
@@ -161,20 +312,17 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                         ${data.sender.phone ? `<p>📞 ${data.sender.phone}</p>` : ''}
                         ${data.sender.email ? `<p>📧 ${data.sender.email}</p>` : ''}
                     </div>
-                    
                     <div class="detail-section">
                         <h3>Receiver</h3>
                         <p><strong>${data.receiver.name}</strong></p>
                         ${data.receiver.phone ? `<p>📞 ${data.receiver.phone}</p>` : ''}
                         ${data.receiver.email ? `<p>📧 ${data.receiver.email}</p>` : ''}
                     </div>
-                    
                     <div class="detail-section">
                         <h3>Addresses</h3>
                         <p><strong>From:</strong> ${data.pickup_address}</p>
                         <p><strong>To:</strong> ${data.delivery_address}</p>
                     </div>
-                    
                     <div class="detail-section">
                         <h3>Shipment Info</h3>
                         <p><strong>Weight:</strong> ${data.weight} kg</p>
@@ -182,7 +330,7 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                         <p><strong>Last Updated:</strong> ${new Date(data.updated_at).toLocaleString()}</p>
                     </div>
                 </div>
-                
+
                 <div class="status-history">
                     <h3>Status History</h3>
                     <div class="timeline">
@@ -192,35 +340,31 @@ document.getElementById('trackingForm').addEventListener('submit', async (e) => 
                                 <div class="timeline-content">
                                     <strong>${entry.status.replace('_', ' ')}</strong>
                                     <p>${entry.note}</p>
-                                    <span class="timeline-date">${new Date(entry.timestamp).toLocaleString()}</span>
+                                    <span class="timeline-date">
+                                        ${new Date(entry.timestamp).toLocaleString()}
+                                    </span>
                                 </div>
                             </div>
                         `).join('')}
                     </div>
-                </div>
-            `;
-        } 
-        else {
+                </div>`;
+        } else {
             resultDiv.className = 'tracking-result not-found';
             resultDiv.innerHTML = `
                 <div class="error-message">
                     <h2>❌ Shipment Not Found</h2>
-                    <p>No shipment found with tracking number: <strong>${trackingNumber}</strong></p>
+                    <p>No shipment found with tracking number:
+                       <strong>${trackingNumber}</strong></p>
                     <p>Please check the tracking number and try again.</p>
-                </div>
-            `;
+                </div>`;
         }
-        console.log('Has route?', !!data.route);
-        console.log('Route data:', data.route);
-        console.log('Has locations?', data.route && data.route.locations);
     } catch (error) {
         resultDiv.className = 'tracking-result error';
         resultDiv.innerHTML = `
             <div class="error-message">
                 <h2>⚠️ Error</h2>
-                <p>An error occurred while tracking your shipment: ${error.message}</p>
-            </div>
-        `;
+                <p>An error occurred while tracking: ${error.message}</p>
+            </div>`;
     }
 });
 </script>

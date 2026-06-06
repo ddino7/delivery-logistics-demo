@@ -1,0 +1,24 @@
+services:
+  ml_service:
+    build:
+      context: ../phase4
+      dockerfile: Dockerfile.ml_service
+    container_name: phase4_ml_service
+    ports:
+      - "5050:5050"
+    environment:
+      - ML_SERVICE_PORT=5050
+    networks:
+      - delivery_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5050/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  delivery_network:
+    external: true
+    name: phase2_delivery-network
